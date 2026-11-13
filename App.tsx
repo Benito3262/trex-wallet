@@ -108,6 +108,15 @@ export default function App() {
   }, [walletAddress, network, tokenRefreshKey]);
 
   useEffect(() => {
+    if (tab !== "Activity") return;
+    let active = true;
+    refreshRecentTransactions()
+      .then((items) => { if (active) setTransactions(items); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [tab]);
+
+  useEffect(() => {
     let mounted = true;
     getWalletAddress().then((address) => { if (mounted && address) setWalletAddress(address); }).catch(() => undefined);
     return () => { mounted = false; };
