@@ -103,7 +103,7 @@ export function SendNative({ address, network, onBack, onSent }: {
               </View>
               <View style={styles.warning}>
                 <Text style={styles.warningTitle}>Before you sign</Text>
-                <Text style={styles.warningText}>Crypto transfers cannot normally be reversed. Check every character of the recipient and confirm the network. This preview checks the chain, address format, balance and gas estimate. It does not guarantee recipient ownership or detect every scam.</Text>
+                <Text style={styles.warningText}>Crypto transfers cannot normally be reversed. Check every character of the recipient and confirm the network. This preview checks the chain, address format, balance and gas estimate. {preview.recipientIsContract ? "The recipient is a smart contract. Confirm that it is intended to receive this native asset." : "The recipient address is not identified as a contract."} These checks do not guarantee recipient ownership or detect every scam.</Text>
               </View>
               <Pressable onPress={confirmAndSend} disabled={busy} style={[styles.primary, busy && styles.disabled]}>
                 <Text style={styles.primaryText}>{busy ? "AUTHENTICATING AND SENDING..." : "CONFIRM AND SEND"}</Text>
