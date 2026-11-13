@@ -7,8 +7,8 @@ import {
   isAddress,
   type FeeData
 } from "ethers";
-import { EvmNetwork } from "../config/networks";
-import { StoredWallet } from "./vault";
+import type { EvmNetwork } from "../config/networks";
+import type { StoredWallet } from "./vault";
 
 const RPC: Record<number, string> = {
   1: "https://cloudflare-eth.com",
