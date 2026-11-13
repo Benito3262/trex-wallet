@@ -19,7 +19,7 @@ TREX Wallet is a personal, non-custodial EVM wallet for Android. Its design prio
 - Manual ERC-20 contract import, read-only token balances, and testnet-only token transfers.
 - Native-asset transfer review, gas estimation, chain-ID check, biometric unlock, and local signing.
 - Local SQLite transaction history containing public transaction metadata only.
-- Standalone calldata decoder prototype for common ERC-20 transfers and approvals, with unit tests; not yet connected to signing.
+- Offline calldata inspector for common ERC-20 approvals, EIP-2612 permits, Permit2 approvals, operator-wide approvals and transfers, with risk levels and unit tests; not connected to signing.
 - Unit tests for address derivation and invalid phrase handling.
 
 ## Networks
