@@ -3,6 +3,7 @@ import { analyzeEvmTransaction } from "./analyzeTransaction";
 
 const erc20 = new Interface([
   "function approve(address spender,uint256 value)",
+  "function approve(address token,address spender,uint160 amount,uint48 expiration)",
   "function permit(address owner,address spender,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)",
   "function setApprovalForAll(address operator,bool approved)",
   "function transfer(address to,uint256 value)"
