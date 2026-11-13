@@ -303,13 +303,13 @@ export default function App() {
           {tab === "Security" && (
             <View style={styles.securityPage}>
               <Text style={styles.sectionTitle}>TREX protection</Text>
-              <Text style={styles.securityIntro}>Current protections cover wallet storage and native testnet transfers. Contract-level risk analysis is still under development.</Text>
+              <Text style={styles.securityIntro}>The offline inspector decodes selected approval and permit calls. It is not yet connected to wallet signing, and it cannot simulate contract execution or guarantee safety.</Text>
               {[
                 ["01", "Native transfer preflight", "Check address syntax, chain ID, balance and estimated gas.", "TESTNET"],
                 ["02", "Encrypted local vault", "Recovery phrase protected by Android secure storage and biometrics.", "ACTIVE"],
                 ["03", "Recovery screen privacy", "Block screenshots and screen recording while words are visible.", "ACTIVE"],
-                ["04", "Contract risk engine", "Decode ERC-20 approvals and EIP-2612 permits; Permit2 and broader contract risk checks remain planned.", "PLANNED"],
-                ["05", "Calldata decoder", "Recognizes common ERC-20 approval and transfer calls. Not yet connected to signing.", "PROTOTYPE"]
+                ["04", "Contract risk engine", "Offline decoder covers ERC-20 approvals, EIP-2612 permits and Permit2 allowances. Signing integration and broader risk checks remain planned.", "PLANNED"],
+                ["05", "Calldata decoder", "Interactive offline inspector for ERC-20 approvals, EIP-2612 permits, Permit2 and transfers. Not connected to signing.", "PROTOTYPE"]
               ].map(([number, title, description, status]) => (
                 <View key={number} style={styles.securityItem}>
                   <Text style={styles.securityNumber}>{number}</Text>
