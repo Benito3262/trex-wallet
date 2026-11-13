@@ -88,7 +88,7 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" 
       setError("Those words do not match. Check your written recovery phrase and try again.");
       return;
     }
-    void persistWallet(mnemonic, address, "m/44'/60'/0'/0/0");
+    void persistWallet(mnemonic, address, "m/44'/60'/0'/0/0", "verify");
   }
 
   async function importWallet() {
