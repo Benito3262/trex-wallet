@@ -57,13 +57,24 @@ export async function recordTransaction(tx: WalletTransaction): Promise<void> {
   );
 }
 
-export async function getRecentTransactions(limit = 50): Promise<WalletTransaction[]> {
+export async function getRecentTransactions(limit = 50, walletAddress?: string): Promise<WalletTransaction[]> {
   const db = await database();
+  const safeLimit = Math.max(1, Math.min(limit, 100));
+  if (walletAddress) {
+    return db.getAllAsync<WalletTransaction>(
+      `SELECT hash, chain_id as chainId, network_name as networkName, symbol, amount,
+        to_address as toAddress, from_address as fromAddress, created_at as createdAt, status
+        FROM wallet_transactions WHERE lower(from_address) = lower(?)
+        ORDER BY created_at DESC LIMIT ?`,
+      walletAddress,
+      safeLimit
+    );
+  }
   return db.getAllAsync<WalletTransaction>(
     `SELECT hash, chain_id as chainId, network_name as networkName, symbol, amount,
       to_address as toAddress, from_address as fromAddress, created_at as createdAt, status
       FROM wallet_transactions ORDER BY created_at DESC LIMIT ?`,
-    Math.max(1, Math.min(limit, 100))
+    safeLimit
   );
 }
 
@@ -90,8 +101,8 @@ const HISTORY_RPC_OVERRIDE: Record<number, string | undefined> = {
 };
 
 /** Refresh a small recent window; "included" means mined, not final settlement. */
-export async function refreshRecentTransactions(): Promise<WalletTransaction[]> {
-  const items = await getRecentTransactions(20);
+export async function refreshRecentTransactions(walletAddress?: string): Promise<WalletTransaction[]> {
+  const items = await getRecentTransactions(20, walletAddress);
   for (const tx of items) {
     if (tx.status !== "submitted") continue;
     const network = NETWORKS.find((item) => item.chainId === tx.chainId);
@@ -118,5 +129,5 @@ export async function refreshRecentTransactions(): Promise<WalletTransaction[]> 
       provider.destroy();
     }
   }
-  return getRecentTransactions();
+  return getRecentTransactions(50, walletAddress);
 }
