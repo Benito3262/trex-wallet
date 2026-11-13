@@ -49,6 +49,18 @@ export default function App() {
   const [walletUnlocked, setWalletUnlocked] = useState(false);
   const [nativeBalance, setNativeBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
+
+  useEffect(() => {
+    if (!walletAddress) { setNativeBalance(null); return; }
+    let active = true;
+    setBalanceLoading(true);
+    getNativeBalance(network, walletAddress)
+      .then((value) => { if (active) setNativeBalance(value); })
+      .catch(() => { if (active) setNativeBalance(null); })
+      .finally(() => { if (active) setBalanceLoading(false); });
+    return () => { active = false; };
+  }, [walletAddress, network]);
 
   useEffect(() => {
     let mounted = true;
@@ -67,7 +79,6 @@ export default function App() {
       </SafeAreaView>
     );
   }
-  const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
