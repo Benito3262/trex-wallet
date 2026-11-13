@@ -101,7 +101,16 @@ export default function App() {
     return () => { mounted = false; };
   }, []);
 
-  if (selectedToken && walletAddress) {\n    return (\n      <SafeAreaView style={styles.safeArea}>\n        <StatusBar style="light" />\n        <SendToken address={walletAddress} network={network} token={selectedToken} onBack={() => setSelectedToken(null)} onSent={() => { refreshRecentTransactions().then(setTransactions).catch(() => undefined); setSelectedToken(null); setTab("Activity"); }} />\n      </SafeAreaView>\n    );\n  }\n\n  if (addTokenOpen && walletAddress) {
+  if (selectedToken && walletAddress) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <SendToken address={walletAddress} network={network} token={selectedToken} onBack={() => setSelectedToken(null)} onSent={() => { refreshRecentTransactions().then(setTransactions).catch(() => undefined); setSelectedToken(null); setTab("Activity"); }} />
+      </SafeAreaView>
+    );
+  }
+
+  if (addTokenOpen && walletAddress) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
