@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import { WalletIdentity } from "./identity";
 
 const VAULT_KEY = "trex.wallet.v1";
+const PUBLIC_ADDRESS_KEY = "trex.wallet.public-address.v1";
 
 export type StoredWallet = WalletIdentity & {
   mnemonic: string;
@@ -20,6 +21,13 @@ export async function saveWallet(wallet: StoredWallet): Promise<void> {
     requireAuthentication: true,
     authenticationPrompt: "Unlock TREX Wallet to protect your recovery phrase"
   });
+  // An address is public metadata; keeping it separately allows the app to
+  // show which account exists without prompting to decrypt the recovery phrase.
+  await SecureStore.setItemAsync(PUBLIC_ADDRESS_KEY, wallet.address);
+}
+
+export async function getWalletAddress(): Promise<string | null> {
+  return SecureStore.getItemAsync(PUBLIC_ADDRESS_KEY);
 }
 
 export async function loadWallet(): Promise<StoredWallet | null> {
@@ -52,11 +60,5 @@ export async function deleteWallet(): Promise<void> {
     requireAuthentication: true,
     authenticationPrompt: "Authenticate to remove this wallet"
   });
-}
-
-export async function isWalletStored(): Promise<boolean> {
-  return SecureStore.getItemAsync(VAULT_KEY, {
-    keychainService: "com.trexwallet.app.wallet",
-    requireAuthentication: false
-  }).then((value) => value !== null);
+  await SecureStore.deleteItemAsync(PUBLIC_ADDRESS_KEY);
 }
