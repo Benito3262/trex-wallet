@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { EvmNetwork } from "../config/networks";
+import type { EvmNetwork } from "../config/networks";
 import { theme } from "../theme";
 import { loadWallet } from "../wallet/vault";
 import { NativeTransferPreview, prepareNativeTransfer, sendNativeTransfer } from "../wallet/transactions";
