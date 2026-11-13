@@ -18,6 +18,7 @@ import * as LocalAuthentication from "expo-local-authentication";
 type Props = {
   onComplete: (address: string) => void;
   onCancel: () => void;
+  initialMode?: "choose" | "import";
 };
 
 type Step = "choose" | "recovery" | "verify" | "import" | "saving";
@@ -29,9 +30,9 @@ const buttonStyle = {
   alignItems: "center" as const
 };
 
-export function WalletOnboarding({ onComplete, onCancel }: Props) {
+export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" }: Props) {
   usePreventScreenCapture();
-  const [step, setStep] = useState<Step>("choose");
+  const [step, setStep] = useState<Step>(initialMode === "import" ? "import" : "choose");
   const [mnemonic, setMnemonic] = useState("");
   const [address, setAddress] = useState("");
   const [challengeAnswers, setChallengeAnswers] = useState(["", ""]);
