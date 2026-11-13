@@ -63,7 +63,7 @@ function parseAmount(amount: string) {
   return value;
 }
 
-function selectFee(feeData: FeeData) {
+type FeeQuote =\n  | { kind: "eip1559"; maxFeePerGas: bigint; maxPriorityFeePerGas: bigint; cap: bigint }\n  | { kind: "legacy"; gasPrice: bigint; cap: bigint };\n\nfunction selectFee(feeData: FeeData): FeeQuote {
   if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
     return {
       maxFeePerGas: feeData.maxFeePerGas,
@@ -72,7 +72,7 @@ function selectFee(feeData: FeeData) {
     };
   }
   if (feeData.gasPrice) {
-    return { gasPrice: feeData.gasPrice, cap: feeData.gasPrice };
+    return { kind: "legacy", gasPrice: feeData.gasPrice, cap: feeData.gasPrice };
   }
   throw new Error("The network did not return usable gas fee data.");
 }
