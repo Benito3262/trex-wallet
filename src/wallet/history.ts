@@ -100,6 +100,8 @@ export async function refreshRecentTransactions(): Promise<WalletTransaction[]> 
 
     const provider = new JsonRpcProvider(rpc, tx.chainId, { staticNetwork: true });
     try {
+      const chainHex = await provider.send("eth_chainId", []);
+      if (Number(BigInt(chainHex)) !== tx.chainId) continue;
       const receipt = await provider.getTransactionReceipt(tx.hash);
       if (receipt) {
         const status = receipt.status === 1 ? "included" : "failed";
