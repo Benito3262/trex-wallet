@@ -13,7 +13,7 @@ TREX Wallet is a personal, non-custodial EVM wallet for Android. Its design prio
 - Authenticated local storage through Expo SecureStore, with biometric enrollment required.
 - Screenshot and screen-recording protection during wallet onboarding.
 - Read-only native balance lookup on supported networks.
-- Receive address QR code and copy action.
+- Receive address QR code and copy action.\n- Manual ERC-20 contract import, read-only token balances, and testnet-only token transfers.
 - Native-asset transfer review, gas estimation, chain-ID check, biometric unlock, and local signing.
 - Local SQLite transaction history containing public transaction metadata only.
 - Unit tests for address derivation and invalid phrase handling.
@@ -56,7 +56,7 @@ Every qualifying push to `main` triggers the GitHub Actions workflow **TREX Wall
 - A biometric prompt is an access gate, not a substitute for secure vault encryption.
 - Native transfer preflight checks address format, chain ID, balance, and a gas estimate. It does not verify recipient ownership or detect every scam.
 - A submitted transaction is not necessarily confirmed.
-- The current app does not yet support ERC-20 transfers, token approvals, arbitrary contract calls, WalletConnect, swaps, or bridging.
+- The current app supports manually added ERC-20 balances and testnet-only ERC-20 transfers. It does not support token approvals, arbitrary contract calls, WalletConnect, swaps, or bridging.
 - Mainnet use requires thorough device testing, recovery testing, transaction test vectors, and independent security review.
 
 See [SECURITY.md](SECURITY.md) and [ROADMAP.md](ROADMAP.md).
