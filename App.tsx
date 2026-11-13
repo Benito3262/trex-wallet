@@ -15,6 +15,7 @@ import { WalletOnboarding } from "./src/components/WalletOnboarding";
 import { WalletUnlock } from "./src/components/WalletUnlock";
 import { getWalletAddress } from "./src/wallet/vault";
 import { getNativeBalance } from "./src/wallet/balances";
+import { getRecentTransactions, WalletTransaction } from "./src/wallet/history";
 import { ReceiveAddress } from "./src/components/ReceiveAddress";
 import { SendNative } from "./src/components/SendNative";
 
@@ -52,6 +53,7 @@ export default function App() {
   const [nativeBalance, setNativeBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [sendOpen, setSendOpen] = useState(false);
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
 
@@ -76,7 +78,7 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
-        <SendNative address={walletAddress} network={network} onBack={() => setSendOpen(false)} onSent={() => { setSendOpen(false); setTab("Activity"); }} />
+        <SendNative address={walletAddress} network={network} onBack={() => setSendOpen(false)} onSent={() => { getRecentTransactions().then(setTransactions).catch(() => undefined); setSendOpen(false); setTab("Activity"); }} />
       </SafeAreaView>
     );
   }
@@ -170,10 +172,24 @@ export default function App() {
           )}
 
           {tab === "Activity" && (
-            <View style={styles.tabEmpty}>
-              <Text style={styles.tabEmptyIcon}>↻</Text>
-              <Text style={styles.emptyTitle}>Activity will live here</Text>
-              <Text style={styles.emptyText}>Your on-chain transaction history will appear after a wallet is set up.</Text>
+            <View style={styles.securityPage}>
+              <Text style={styles.sectionTitle}>Transaction activity</Text>
+              <Text style={styles.securityIntro}>Locally recorded transactions submitted from this device. A submitted transaction is not necessarily confirmed.</Text>
+              {transactions.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <Text style={styles.emptyTitle}>No transactions yet</Text>
+                  <Text style={styles.emptyText}>Your submitted transfers will appear here.</Text>
+                </View>
+              ) : transactions.map((tx) => (
+                <View key={tx.hash} style={styles.transactionRow}>
+                  <View style={styles.transactionIcon}><Text style={styles.transactionIconText}>↗</Text></View>
+                  <View style={styles.transactionCopy}>
+                    <Text style={styles.transactionTitle}>Sent {tx.amount} {tx.symbol}</Text>
+                    <Text style={styles.transactionMeta}>{tx.networkName} · Submitted</Text>
+                    <Text selectable style={styles.transactionHash}>{tx.hash.slice(0, 12)}...{tx.hash.slice(-8)}</Text>
+                  </View>
+                </View>
+              ))}
             </View>
           )}
 
@@ -272,5 +288,5 @@ const styles = StyleSheet.create({
   navIcon: { color: theme.colors.muted, fontSize: 19 },
   navLabel: { color: theme.colors.muted, fontSize: 9, fontWeight: "700" },
   navActive: { color: theme.colors.primaryBright },
-  disclaimer: { color: "#766C87", fontSize: 8, textAlign: "center", letterSpacing: 1.1, paddingBottom: 5, paddingTop: 3 }
+  transactionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border },\n  transactionIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center" },\n  transactionIconText: { color: theme.colors.primaryBright, fontSize: 17 },\n  transactionCopy: { flex: 1 },\n  transactionTitle: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },\n  transactionMeta: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },\n  transactionHash: { color: theme.colors.primaryBright, fontSize: 9, marginTop: 4 },\n  disclaimer: { color: "#766C87", fontSize: 8, textAlign: "center", letterSpacing: 1.1, paddingBottom: 5, paddingTop: 3 }
 });
