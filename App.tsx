@@ -18,6 +18,10 @@ import { getNativeBalance } from "./src/wallet/balances";
 import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
 import { ReceiveAddress } from "./src/components/ReceiveAddress";
 import { SendNative } from "./src/components/SendNative";
+import { AddToken } from "./src/components/AddToken";
+import { getCustomTokens } from "./src/wallet/tokenStore";
+import { inspectErc20Token } from "./src/wallet/tokens";
+import type { TokenBalance } from "./src/wallet/tokens";
 
 type Tab = "Wallet" | "Activity" | "Security";
 
@@ -55,6 +59,9 @@ export default function App() {
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [sendOpen, setSendOpen] = useState(false);
+  const [addTokenOpen, setAddTokenOpen] = useState(false);
+  const [tokenRefreshKey, setTokenRefreshKey] = useState(0);
+  const [customTokens, setCustomTokens] = useState<TokenBalance[]>([]);
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
 
   useEffect(() => {
@@ -74,7 +81,7 @@ export default function App() {
     return () => { mounted = false; };
   }, []);
 
-  if (sendOpen && walletAddress) {
+  if (addTokenOpen && walletAddress) {\n    return (\n      <SafeAreaView style={styles.safeArea}>\n        <StatusBar style="light" />\n        <AddToken network={network} walletAddress={walletAddress} onBack={() => setAddTokenOpen(false)} onAdded={() => { setAddTokenOpen(false); setTokenRefreshKey((value) => value + 1); }} />\n      </SafeAreaView>\n    );\n  }\n\n  if (sendOpen && walletAddress) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
@@ -153,19 +160,32 @@ export default function App() {
 
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Assets</Text>
-                <Text style={styles.sectionMeta}>{network.name}</Text>
+                <Pressable onPress={() => setAddTokenOpen(true)} disabled={!walletAddress}>
+                  <Text style={styles.sectionMeta}>{walletAddress ? "+ ADD TOKEN" : network.name}</Text>
+                </Pressable>
               </View>
-              <View style={styles.emptyCard}>
-                <View style={styles.emptyIcon}><Text style={styles.emptyIconText}>◇</Text></View>
-                <Text style={styles.emptyTitle}>Your assets will appear here</Text>
-                <Text style={styles.emptyText}>Create or import a wallet to see balances and tokens across your EVM networks.</Text>
-              </View>
+              {customTokens.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <View style={styles.emptyIcon}><Text style={styles.emptyIconText}>◇</Text></View>
+                  <Text style={styles.emptyTitle}>{walletAddress ? "No custom tokens added" : "Your assets will appear here"}</Text>
+                  <Text style={styles.emptyText}>{walletAddress ? "Add an ERC-20 contract address to read its balance on this network." : "Create or import a wallet to see balances and tokens across your EVM networks."}</Text>
+                </View>
+              ) : customTokens.map((token) => (
+                <View key={token.contractAddress} style={styles.tokenRow}>
+                  <View style={styles.tokenSymbolBubble}><Text style={styles.tokenSymbolText}>{token.symbol.slice(0, 3).toUpperCase()}</Text></View>
+                  <View style={styles.tokenDetails}>
+                    <Text style={styles.tokenNameText}>{token.name}</Text>
+                    <Text style={styles.tokenMetaText}>{token.symbol} · Unverified contract</Text>
+                  </View>
+                  <Text style={styles.tokenBalanceText}>{token.balance}</Text>
+                </View>
+              ))}
 
               <View style={styles.securityBanner}>
                 <View style={styles.shield}><Text style={styles.shieldText}>✦</Text></View>
                 <View style={styles.securityCopy}>
                   <Text style={styles.securityTitle}>Security comes first</Text>
-                  <Text style={styles.securityText}>Every transaction will be explained before you sign.</Text>
+                  <Text style={styles.securityText}>Native testnet transfers show the recipient, amount and gas estimate before signing.</Text>
                 </View>
               </View>
             </>
@@ -288,7 +308,7 @@ const styles = StyleSheet.create({
   navIcon: { color: theme.colors.muted, fontSize: 19 },
   navLabel: { color: theme.colors.muted, fontSize: 9, fontWeight: "700" },
   navActive: { color: theme.colors.primaryBright },
-  transactionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  tokenRow: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: theme.colors.border },\n  tokenSymbolBubble: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center" },\n  tokenSymbolText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900" },\n  tokenDetails: { flex: 1 },\n  tokenNameText: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },\n  tokenMetaText: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },\n  tokenBalanceText: { color: theme.colors.text, fontSize: 11, fontWeight: "700" },\n  transactionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   transactionIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center" },
   transactionIconText: { color: theme.colors.primaryBright, fontSize: 17 },
   transactionCopy: { flex: 1 },
