@@ -14,6 +14,7 @@ import { theme } from "./src/theme";
 import { WalletOnboarding } from "./src/components/WalletOnboarding";
 import { WalletUnlock } from "./src/components/WalletUnlock";
 import { getWalletAddress } from "./src/wallet/vault";
+import { getNativeBalance } from "./src/wallet/balances";
 
 type Tab = "Wallet" | "Activity" | "Security";
 
@@ -46,6 +47,8 @@ export default function App() {
   const [setupOpen, setSetupOpen] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [walletUnlocked, setWalletUnlocked] = useState(false);
+  const [nativeBalance, setNativeBalance] = useState<string | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -92,7 +95,7 @@ export default function App() {
                     <Text style={styles.eye}>{balanceHidden ? "◉" : "◎"}</Text>
                   </Pressable>
                 </View>
-                <Text style={styles.balance}>{balanceHidden ? "••••••••" : "$0.00"}</Text>
+                <Text style={styles.balance}>{balanceHidden ? "••••••••" : walletAddress ? balanceLoading ? "Loading..." : nativeBalance ? `${nativeBalance} ${network.symbol}` : "Unavailable" : "0.00"}</Text>
                 <Text style={styles.balanceFootnote}>{walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}` : "No wallet connected yet"}</Text>
                 <View style={styles.cardDivider} />
                 <View style={styles.addressRow}>
