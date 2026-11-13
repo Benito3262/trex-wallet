@@ -5,6 +5,7 @@ import {
   ScrollView,
   Linking,
   Modal,
+  Alert,
   StyleSheet,
   Text,
   View
@@ -22,7 +23,7 @@ import { ReceiveAddress } from "./src/components/ReceiveAddress";
 import { SendNative } from "./src/components/SendNative";
 import { AddToken } from "./src/components/AddToken";
 import { SendToken } from "./src/components/SendToken";
-import { getCustomTokens } from "./src/wallet/tokenStore";
+import { getCustomTokens, removeCustomToken } from "./src/wallet/tokenStore";
 import { inspectErc20Token } from "./src/wallet/tokens";
 import type { TokenBalance, TokenMetadata } from "./src/wallet/tokens";
 
@@ -232,14 +233,19 @@ export default function App() {
                   <Text style={styles.emptyText}>{walletAddress ? "Add an ERC-20 contract address to read its balance on this network." : "Create or import a wallet to see balances and tokens across your EVM networks."}</Text>
                 </View>
               ) : customTokens.map((token) => (
-                <Pressable key={token.contractAddress} style={styles.tokenRow} disabled={network.chainId !== 11155111 && network.chainId !== 84532} onPress={() => setSelectedToken(token)}>
-                  <View style={styles.tokenSymbolBubble}><Text style={styles.tokenSymbolText}>{token.symbol.slice(0, 3).toUpperCase()}</Text></View>
-                  <View style={styles.tokenDetails}>
-                    <Text style={styles.tokenNameText}>{token.name}</Text>
-                    <Text style={styles.tokenMetaText}>{token.symbol} · {network.chainId === 11155111 || network.chainId === 84532 ? "Tap to send · Unverified" : "Unverified contract"}</Text>
-                  </View>
-                  <Text style={styles.tokenBalanceText}>{token.balance}</Text>
-                </Pressable>
+                <View key={token.contractAddress} style={styles.tokenRow}>
+                  <Pressable style={styles.tokenRowBody} disabled={network.chainId !== 11155111 && network.chainId !== 84532} onPress={() => setSelectedToken(token)}>
+                    <View style={styles.tokenSymbolBubble}><Text style={styles.tokenSymbolText}>{token.symbol.slice(0, 3).toUpperCase()}</Text></View>
+                    <View style={styles.tokenDetails}>
+                      <Text style={styles.tokenNameText}>{token.name}</Text>
+                      <Text style={styles.tokenMetaText}>{token.symbol} · {network.chainId === 11155111 || network.chainId === 84532 ? "Tap to send · Unverified" : "Unverified contract"}</Text>
+                    </View>
+                    <Text style={styles.tokenBalanceText}>{token.balance}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => Alert.alert("Remove token?", `Remove ${token.symbol} from this device's asset list?`, [{ text: "Cancel", style: "cancel" }, { text: "Remove", style: "destructive", onPress: () => { removeCustomToken(network.chainId, token.contractAddress).then(() => setTokenRefreshKey((value) => value + 1)).catch(() => undefined); } }])}>
+                    <Text style={styles.removeToken}>×</Text>
+                  </Pressable>
+                </View>
               ))}
 
               <View style={styles.securityBanner}>
@@ -380,7 +386,9 @@ const styles = StyleSheet.create({
   navIcon: { color: theme.colors.muted, fontSize: 19 },
   navLabel: { color: theme.colors.muted, fontSize: 9, fontWeight: "700" },
   navActive: { color: theme.colors.primaryBright },
-  tokenRow: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  tokenRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  tokenRowBody: { flex: 1, flexDirection: "row", alignItems: "center", gap: 11 },
+  removeToken: { color: theme.colors.muted, fontSize: 20, paddingHorizontal: 8, paddingVertical: 4 },
   tokenSymbolBubble: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center" },
   tokenSymbolText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900" },
   tokenDetails: { flex: 1 },
