@@ -8,7 +8,7 @@ TREX Wallet is an early-stage, non-custodial Android wallet. The current test bu
 - Access to the recovery phrase requires enrolled device biometrics.
 - Recovery phrase onboarding blocks screenshots and screen recording while the phrase is displayed.
 - Native transfers are signed locally; the mnemonic is not sent to RPC providers.
-- The transaction review checks recipient address syntax, expected chain ID, current balance, and estimated gas before signing.
+- The transaction review checks recipient address syntax, expected chain ID, current balance, estimated gas, and whether a native-asset recipient is a contract before signing.
 - Transaction history stores public transaction metadata only, never secret material.
 - New installs default to Base Sepolia testnet.
 - Manual ERC-20 token transfers are limited to Sepolia testnets and re-check contract code, symbol, decimals, token balance, native gas balance, and chain ID before local signing.
