@@ -1,4 +1,6 @@
 import * as SQLite from "expo-sqlite";
+import { JsonRpcProvider } from "ethers";
+import { NETWORKS } from "../config/networks";
 
 export type WalletTransaction = {
   hash: string;
@@ -9,7 +11,7 @@ export type WalletTransaction = {
   toAddress: string;
   fromAddress: string;
   createdAt: string;
-  status: "submitted";
+  status: "submitted" | "included" | "failed";
 };
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -63,4 +65,45 @@ export async function getRecentTransactions(limit = 50): Promise<WalletTransacti
       FROM wallet_transactions ORDER BY created_at DESC LIMIT ?`,
     Math.max(1, Math.min(limit, 100))
   );
+}
+
+const HISTORY_RPC: Record<number, string> = {
+  1: "https://cloudflare-eth.com",
+  8453: "https://mainnet.base.org",
+  56: "https://bsc-dataseed.binance.org",
+  42161: "https://arb1.arbitrum.io/rpc",
+  10: "https://mainnet.optimism.io",
+  137: "https://polygon-rpc.com",
+  11155111: "https://ethereum-sepolia-rpc.publicnode.com",
+  84532: "https://sepolia.base.org"
+};
+
+/** Refresh a small recent window; "included" means mined, not final settlement. */
+export async function refreshRecentTransactions(): Promise<WalletTransaction[]> {
+  const items = await getRecentTransactions(20);
+  for (const tx of items) {
+    if (tx.status !== "submitted") continue;
+    const network = NETWORKS.find((item) => item.chainId === tx.chainId);
+    const rpc = HISTORY_RPC[tx.chainId];
+    if (!network || !rpc) continue;
+
+    const provider = new JsonRpcProvider(rpc, tx.chainId, { staticNetwork: true });
+    try {
+      const receipt = await provider.getTransactionReceipt(tx.hash);
+      if (receipt) {
+        const status = receipt.status === 1 ? "included" : "failed";
+        const db = await database();
+        await db.runAsync(
+          "UPDATE wallet_transactions SET status = ? WHERE hash = ?",
+          status,
+          tx.hash
+        );
+      }
+    } catch {
+      // Keep the prior submitted state when an RPC provider is unavailable.
+    } finally {
+      provider.destroy();
+    }
+  }
+  return getRecentTransactions();
 }
