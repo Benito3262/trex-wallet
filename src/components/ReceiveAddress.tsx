@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import * as Clipboard from "expo-clipboard";
-import { EvmNetwork } from "../config/networks";
+import type { EvmNetwork } from "../config/networks";
 import { theme } from "../theme";
 
 export function ReceiveAddress({ address, network, onBack }: {
