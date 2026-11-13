@@ -22,7 +22,7 @@ TREX Wallet is a personal, non-custodial EVM wallet for Android. Its design prio
 
 Mainnets: Ethereum, Base, BNB Smart Chain, Arbitrum One, Optimism, and Polygon.
 
-Testnets: Ethereum Sepolia and Base Sepolia. **New installs default to Base Sepolia** to reduce the risk of accidental mainnet spending while testing.
+Testnets: Ethereum Sepolia and Base Sepolia. **New installs default to Base Sepolia** to reduce the risk of accidental mainnet spending while testing. Native transfers are currently restricted in code to Ethereum Sepolia and Base Sepolia; mainnet send actions are disabled.
 
 Public RPC endpoints are configured in the source as fallbacks. You can override them with the variables in `.env.example`. RPC providers can observe the public wallet address and network requests. Values prefixed with `EXPO_PUBLIC_` are bundled into the app; never put private API credentials, seed phrases, or private keys in them.
 
