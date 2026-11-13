@@ -6,6 +6,7 @@ import {
   Linking,
   Modal,
   Alert,
+  AppState,
   StyleSheet,
   Text,
   View
@@ -69,6 +70,13 @@ export default function App() {
   const [selectedToken, setSelectedToken] = useState<TokenMetadata | null>(null);
   const [networkPickerOpen, setNetworkPickerOpen] = useState(false);
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state !== "active") setWalletUnlocked(false);
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (!walletAddress) { setNativeBalance(null); return; }
