@@ -21,7 +21,7 @@
 - [x] Read native-asset balances from configured RPC providers
 - [x] Receive address and QR code
 - [x] Local transaction metadata history
-- [ ] Add custom ERC-20 token discovery and balances
+- [x] Add manual ERC-20 contract inspection and custom token balances
 - [ ] Add on-chain transaction receipt and confirmation status refresh
 
 ## Phase 3 — Controlled signing
@@ -29,7 +29,7 @@
 - [x] Chain-ID validation and balance-plus-fee preflight
 - [x] Local native-asset signing with authenticated vault unlock
 - [x] Explicit review and confirmation screen
-- [ ] ERC-20 transfers and token decimals/amount validation
+- [x] ERC-20 testnet transfers with token metadata revalidation and native gas checks
 - [ ] Hardware-backed transaction-signing threat review
 - [ ] Transaction simulation and recipient risk checks
 
