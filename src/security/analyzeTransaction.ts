@@ -1,0 +1,140 @@
+import { Interface, MaxUint256, formatUnits, isAddress } from "ethers";
+
+const ERC20_INTERFACE = new Interface([
+  "function approve(address spender,uint256 value)",
+  "function setApprovalForAll(address operator,bool approved)",
+  "function transfer(address to,uint256 value)",
+  "function transferFrom(address from,address to,uint256 value)",
+  "function increaseAllowance(address spender,uint256 addedValue)"
+]);
+
+export type RiskLevel = "info" | "warning" | "high" | "critical";
+
+export type TransactionAnalysis = {
+  method: string;
+  selector: string;
+  riskLevel: RiskLevel;
+  summary: string;
+  warnings: string[];
+  addresses: string[];
+  amountRaw?: string;
+};
+
+export function analyzeEvmTransaction(data: string): TransactionAnalysis {
+  const selector = data.length >= 10 ? data.slice(0, 10).toLowerCase() : "0x";
+  const warnings: string[] = [];
+
+  if (selector === "0x") {
+    return {
+      method: "Native transfer or empty call",
+      selector,
+      riskLevel: "info",
+      summary: "No contract method selector was supplied.",
+      warnings: ["Verify the destination and network before signing."],
+      addresses: []
+    };
+  }
+
+  try {
+    const parsed = ERC20_INTERFACE.parseTransaction({ data });
+    if (!parsed) throw new Error("Unknown method selector.");
+
+    if (parsed.name === "approve") {
+      const spender = String(parsed.args[0]);
+      const amount = BigInt(parsed.args[1]);
+      const unlimited = amount === MaxUint256;
+      warnings.push("This call grants a spender permission to move your tokens.");
+      if (unlimited) warnings.push("The approval amount is the maximum uint256 value and is effectively unlimited.");
+      return {
+        method: "ERC-20 approve",
+        selector,
+        riskLevel: unlimited ? "critical" : "high",
+        summary: unlimited
+          ? "This transaction grants effectively unlimited token spending permission."
+          : "This transaction grants token spending permission to a third-party address.",
+        warnings,
+        addresses: isAddress(spender) ? [spender] : [],
+        amountRaw: amount.toString()
+      };
+    }
+
+    if (parsed.name === "setApprovalForAll") {
+      const operator = String(parsed.args[0]);
+      const approved = Boolean(parsed.args[1]);
+      if (approved) {
+        warnings.push("The operator may manage all tokens in this collection or contract scope.");
+      }
+      return {
+        method: "setApprovalForAll",
+        selector,
+        riskLevel: approved ? "critical" : "warning",
+        summary: approved
+          ? "This enables an operator-wide approval. Review the operator carefully."
+          : "This disables an operator-wide approval.",
+        warnings,
+        addresses: isAddress(operator) ? [operator] : []
+      };
+    }
+
+    if (parsed.name === "transfer") {
+      const recipient = String(parsed.args[0]);
+      const amount = BigInt(parsed.args[1]);
+      return {
+        method: "ERC-20 transfer",
+        selector,
+        riskLevel: "info",
+        summary: "This call transfers tokens to the specified recipient.",
+        warnings: ["Verify the token contract and recipient independently."],
+        addresses: isAddress(recipient) ? [recipient] : [],
+        amountRaw: amount.toString()
+      };
+    }
+
+    if (parsed.name === "transferFrom") {
+      const owner = String(parsed.args[0]);
+      const recipient = String(parsed.args[1]);
+      const amount = BigInt(parsed.args[2]);
+      return {
+        method: "ERC-20 transferFrom",
+        selector,
+        riskLevel: "warning",
+        summary: "This call attempts to move tokens from another address using an existing allowance.",
+        warnings: ["Confirm the source address, recipient, token contract and allowance context."],
+        addresses: [owner, recipient].filter(isAddress),
+        amountRaw: amount.toString()
+      };
+    }
+
+    if (parsed.name === "increaseAllowance") {
+      const spender = String(parsed.args[0]);
+      const amount = BigInt(parsed.args[1]);
+      return {
+        method: "increaseAllowance",
+        selector,
+        riskLevel: "high",
+        summary: "This call increases a spender's token allowance.",
+        warnings: ["Review the spender and resulting total allowance before signing."],
+        addresses: isAddress(spender) ? [spender] : [],
+        amountRaw: amount.toString()
+      };
+    }
+  } catch {
+    return {
+      method: "Unknown contract call",
+      selector,
+      riskLevel: "warning",
+      summary: "TREX could not decode this contract call using its built-in method catalogue.",
+      warnings: ["Do not sign an unknown call unless you understand its exact effect."],
+      addresses: []
+    };
+  }
+
+  return {
+    method: "Unknown contract call",
+    selector,
+    riskLevel: "warning",
+    summary: "This method is not in the current decoder catalogue.",
+    warnings: ["Do not sign an unknown call unless you understand its exact effect."],
+    addresses: []
+  };
+}
