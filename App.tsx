@@ -81,7 +81,16 @@ export default function App() {
     return () => { mounted = false; };
   }, []);
 
-  if (addTokenOpen && walletAddress) {\n    return (\n      <SafeAreaView style={styles.safeArea}>\n        <StatusBar style="light" />\n        <AddToken network={network} walletAddress={walletAddress} onBack={() => setAddTokenOpen(false)} onAdded={() => { setAddTokenOpen(false); setTokenRefreshKey((value) => value + 1); }} />\n      </SafeAreaView>\n    );\n  }\n\n  if (sendOpen && walletAddress) {
+  if (addTokenOpen && walletAddress) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <AddToken network={network} walletAddress={walletAddress} onBack={() => setAddTokenOpen(false)} onAdded={() => { setAddTokenOpen(false); setTokenRefreshKey((value) => value + 1); }} />
+      </SafeAreaView>
+    );
+  }
+
+  if (sendOpen && walletAddress) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
@@ -308,7 +317,14 @@ const styles = StyleSheet.create({
   navIcon: { color: theme.colors.muted, fontSize: 19 },
   navLabel: { color: theme.colors.muted, fontSize: 9, fontWeight: "700" },
   navActive: { color: theme.colors.primaryBright },
-  tokenRow: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: theme.colors.border },\n  tokenSymbolBubble: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center" },\n  tokenSymbolText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900" },\n  tokenDetails: { flex: 1 },\n  tokenNameText: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },\n  tokenMetaText: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },\n  tokenBalanceText: { color: theme.colors.text, fontSize: 11, fontWeight: "700" },\n  transactionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  tokenRow: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  tokenSymbolBubble: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center" },
+  tokenSymbolText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900" },
+  tokenDetails: { flex: 1 },
+  tokenNameText: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
+  tokenMetaText: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },
+  tokenBalanceText: { color: theme.colors.text, fontSize: 11, fontWeight: "700" },
+  transactionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   transactionIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center" },
   transactionIconText: { color: theme.colors.primaryBright, fontSize: 17 },
   transactionCopy: { flex: 1 },
