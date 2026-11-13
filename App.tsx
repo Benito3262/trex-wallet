@@ -126,7 +126,7 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
-        <SendToken address={walletAddress} network={network} token={selectedToken} onBack={() => setSelectedToken(null)} onSent={() => { refreshRecentTransactions().then(setTransactions).catch(() => undefined); setSelectedToken(null); setTab("Activity"); }} />
+        <SendToken address={walletAddress} network={network} token={selectedToken} onBack={() => setSelectedToken(null)} onSent={() => { setSelectedToken(null); setTab("Activity"); }} />
       </SafeAreaView>
     );
   }
@@ -144,7 +144,7 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
-        <SendNative address={walletAddress} network={network} onBack={() => setSendOpen(false)} onSent={() => { refreshRecentTransactions().then(setTransactions).catch(() => undefined); setSendOpen(false); setTab("Activity"); }} />
+        <SendNative address={walletAddress} network={network} onBack={() => setSendOpen(false)} onSent={() => { setSendOpen(false); setTab("Activity"); }} />
       </SafeAreaView>
     );
   }
