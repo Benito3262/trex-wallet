@@ -67,7 +67,7 @@ export function analyzeEvmTransaction(data: string): TransactionAnalysis {
       return {
         method: "setApprovalForAll",
         selector,
-        riskLevel: approved ? "critical" : "warning",
+        riskLevel: approved ? "critical" : "info",
         summary: approved
           ? "This enables an operator-wide approval. Review the operator carefully."
           : "This disables an operator-wide approval.",
