@@ -10,6 +10,14 @@ import {
 import type { EvmNetwork } from "../config/networks";
 import type { StoredWallet } from "./vault";
 
+const TESTNET_SEND_CHAINS = new Set([11155111, 84532]);
+
+function assertTestnetSendingEnabled(network: EvmNetwork) {
+  if (!TESTNET_SEND_CHAINS.has(network.chainId)) {
+    throw new Error("Mainnet transfers are disabled in this development build. Switch to Ethereum Sepolia or Base Sepolia.");
+  }
+}
+
 const RPC: Record<number, string> = {
   1: "https://cloudflare-eth.com",
   8453: "https://mainnet.base.org",
@@ -91,7 +99,8 @@ export async function prepareNativeTransfer(
   from: string,
   recipient: string,
   amount: string
-): Promise<NativeTransferPreview> {
+ ): Promise<NativeTransferPreview> {
+  assertTestnetSendingEnabled(network);
   if (!isAddress(recipient)) throw new Error("Recipient address is not valid.");
   const to = recipient.trim();
   const value = parseAmount(amount);
@@ -133,7 +142,8 @@ export async function sendNativeTransfer(
   storedWallet: StoredWallet,
   recipient: string,
   amount: string
-): Promise<string> {
+ ): Promise<string> {
+  assertTestnetSendingEnabled(network);
   if (!isAddress(recipient)) throw new Error("Recipient address is not valid.");
   const value = parseAmount(amount);
   const provider = providerFor(network);
