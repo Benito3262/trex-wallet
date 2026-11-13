@@ -2,6 +2,7 @@ import { Interface, MaxUint256, isAddress } from "ethers";
 
 const ERC20_INTERFACE = new Interface([
   "function approve(address spender,uint256 value)",
+  "function permit(address owner,address spender,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)",
   "function setApprovalForAll(address operator,bool approved)",
   "function transfer(address to,uint256 value)",
   "function transferFrom(address from,address to,uint256 value)",
@@ -54,6 +55,26 @@ export function analyzeEvmTransaction(data: string): TransactionAnalysis {
           : "This transaction grants token spending permission to a third-party address.",
         warnings,
         addresses: isAddress(spender) ? [spender] : [],
+        amountRaw: amount.toString()
+      };
+    }
+
+    if (parsed.name === "permit") {
+      const owner = String(parsed.args[0]);
+      const spender = String(parsed.args[1]);
+      const amount = BigInt(parsed.args[2]);
+      const unlimited = amount === MaxUint256;
+      warnings.push("This call submits a signed permit that grants token spending permission.");
+      if (unlimited) warnings.push("The permit amount is the maximum uint256 value and is effectively unlimited.");
+      return {
+        method: "ERC-20 permit",
+        selector,
+        riskLevel: unlimited ? "critical" : "high",
+        summary: unlimited
+          ? "This permit grants effectively unlimited token spending permission."
+          : "This permit grants token spending permission to a third-party address.",
+        warnings,
+        addresses: [owner, spender].filter(isAddress),
         amountRaw: amount.toString()
       };
     }
