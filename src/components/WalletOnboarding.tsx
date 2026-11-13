@@ -13,6 +13,7 @@ import { createWalletIdentity, deriveWalletFromPhrase } from "../wallet/identity
 import { saveWallet } from "../wallet/vault";
 import { theme } from "../theme";
 import { usePreventScreenCapture } from "expo-screen-capture";
+import * as LocalAuthentication from "expo-local-authentication";
 
 type Props = {
   onComplete: (address: string) => void;
@@ -59,6 +60,11 @@ export function WalletOnboarding({ onComplete, onCancel }: Props) {
     setStep("saving");
     setError("");
     try {
+      const biometricHardware = await LocalAuthentication.hasHardwareAsync();
+      const biometricEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!biometricHardware || !biometricEnrolled) {
+        throw new Error("Set up fingerprint or face unlock on this Android device before creating or importing a TREX wallet.");
+      }
       await saveWallet({
         mnemonic: phrase,
         address: walletAddress,
