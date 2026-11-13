@@ -80,7 +80,7 @@ export function analyzeEvmTransaction(data: string): TransactionAnalysis {
             ? "This permit grants effectively unlimited token spending permission."
             : "This permit grants token spending permission to a third-party address.",
         warnings,
-        addresses: [owner, spender].filter(isAddress),
+        addresses: [owner, spender].filter((value) => isAddress(value)),
         amountRaw: amount.toString()
       };
     }
@@ -127,7 +127,7 @@ export function analyzeEvmTransaction(data: string): TransactionAnalysis {
         riskLevel: "warning",
         summary: "This call attempts to move tokens from another address using an existing allowance.",
         warnings: ["Confirm the source address, recipient, token contract and allowance context."],
-        addresses: [owner, recipient].filter(isAddress),
+        addresses: [owner, recipient].filter((value) => isAddress(value)),
         amountRaw: amount.toString()
       };
     }
