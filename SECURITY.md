@@ -30,7 +30,7 @@ TREX Wallet is an early-stage, non-custodial Android wallet. The current test bu
 - The current send flow supports native assets only. It does not decode arbitrary contract calls or ERC-20 approvals.
 - Native transfer preflight is not a scam detector. It cannot prove that a recipient belongs to the intended person.
 - A transaction marked submitted is not necessarily confirmed or successful.
-- The app does not yet implement ERC-20 token transfers, WalletConnect, arbitrary contract interactions, swaps, bridging, or a production-grade security intelligence engine.
+- The app does not yet implement WalletConnect, arbitrary contract interactions, swaps, bridging, or a production-grade security intelligence engine.
 
 ## Required security work before real funds
 
