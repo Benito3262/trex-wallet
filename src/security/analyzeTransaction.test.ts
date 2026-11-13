@@ -11,7 +11,7 @@ const erc20 = new Interface([
 describe("EVM transaction risk analysis", () => {
   it("flags maximum ERC-20 approvals as critical", () => {
     const data = erc20.encodeFunctionData("approve", [
-      "0x000000000000000000000000000000000000dEaD",
+      "0x000000000000000000000000000000000000dead",
       MaxUint256
     ]);
     const result = analyzeEvmTransaction(data);
@@ -22,8 +22,8 @@ describe("EVM transaction risk analysis", () => {
 
   it("flags maximum EIP-2612 permits as critical", () => {
     const data = erc20.encodeFunctionData("permit", [
-      "0x000000000000000000000000000000000000bEEF",
-      "0x000000000000000000000000000000000000dEaD",
+      "0x000000000000000000000000000000000000beef",
+      "0x000000000000000000000000000000000000dead",
       MaxUint256,
       2000000000,
       27,
@@ -37,7 +37,7 @@ describe("EVM transaction risk analysis", () => {
 
   it("flags operator-wide approvals as critical", () => {
     const data = erc20.encodeFunctionData("setApprovalForAll", [
-      "0x000000000000000000000000000000000000dEaD",
+      "0x000000000000000000000000000000000000dead",
       true
     ]);
     expect(analyzeEvmTransaction(data).riskLevel).toBe("critical");
@@ -45,7 +45,7 @@ describe("EVM transaction risk analysis", () => {
 
   it("recognizes a basic token transfer without claiming it is safe", () => {
     const data = erc20.encodeFunctionData("transfer", [
-      "0x000000000000000000000000000000000000dEaD",
+      "0x000000000000000000000000000000000000dead",
       1000n
     ]);
     const result = analyzeEvmTransaction(data);
