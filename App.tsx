@@ -16,6 +16,7 @@ import { WalletUnlock } from "./src/components/WalletUnlock";
 import { getWalletAddress } from "./src/wallet/vault";
 import { getNativeBalance } from "./src/wallet/balances";
 import { ReceiveAddress } from "./src/components/ReceiveAddress";
+import { SendNative } from "./src/components/SendNative";
 
 type Tab = "Wallet" | "Activity" | "Security";
 
@@ -51,6 +52,7 @@ export default function App() {
   const [nativeBalance, setNativeBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
 
   useEffect(() => {
@@ -69,6 +71,15 @@ export default function App() {
     getWalletAddress().then((address) => { if (mounted && address) setWalletAddress(address); }).catch(() => undefined);
     return () => { mounted = false; };
   }, []);
+
+  if (sendOpen && walletAddress) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <SendNative address={walletAddress} network={network} onBack={() => setSendOpen(false)} onSent={() => { setSendOpen(false); setTab("Activity"); }} />
+      </SafeAreaView>
+    );
+  }
 
   if (receiveOpen && walletAddress) {
     return (
@@ -133,7 +144,7 @@ export default function App() {
 
               <View style={styles.actions}>
                 <ActionTile icon="＋" label={walletAddress ? (walletUnlocked ? "Wallet ready" : "Unlock") : "Create wallet"} onPress={() => walletAddress ? undefined : setSetupOpen(true)} disabled={!!walletAddress} />
-                <ActionTile icon="↗" label="Send" disabled />
+                <ActionTile icon="↗" label="Send" onPress={() => setSendOpen(true)} disabled={!walletAddress} />
                 <ActionTile icon="↙" label="Receive" onPress={() => setReceiveOpen(true)} disabled={!walletAddress} />
                 <ActionTile icon="⇄" label="Swap" disabled />
               </View>
