@@ -57,7 +57,7 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" 
     }
   }
 
-  async function persistWallet(phrase: string, walletAddress: string, derivationPath: string) {
+  async function persistWallet(phrase: string, walletAddress: string, derivationPath: string, retryStep: Step) {
     setStep("saving");
     setError("");
     try {
@@ -75,7 +75,7 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" 
       setMnemonic("");
       onComplete(walletAddress);
     } catch (e) {
-      setStep("recovery");
+      setStep(retryStep);
       setError(e instanceof Error ? e.message : "Secure storage failed. Your wallet was not saved.");
     }
   }
@@ -98,7 +98,7 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" 
       if (existingAddress && existingAddress.toLowerCase() !== derived.address.toLowerCase()) {
         throw new Error("This phrase derives a different address from the wallet already stored on this device. Check that you entered the original recovery phrase.");
       }
-      void persistWallet(mnemonic.trim().replace(/\s+/g, " "), derived.address, derived.derivationPath);
+      void persistWallet(mnemonic.trim().replace(/\s+/g, " "), derived.address, derived.derivationPath, "import");
     } catch (e) {
       setError(e instanceof Error ? e.message : "That recovery phrase is invalid. Check all words and their order.");
     }
