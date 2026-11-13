@@ -15,7 +15,7 @@ import { WalletOnboarding } from "./src/components/WalletOnboarding";
 import { WalletUnlock } from "./src/components/WalletUnlock";
 import { getWalletAddress } from "./src/wallet/vault";
 import { getNativeBalance } from "./src/wallet/balances";
-import { getRecentTransactions, WalletTransaction } from "./src/wallet/history";
+import { getRecentTransactions, type WalletTransaction } from "./src/wallet/history";
 import { ReceiveAddress } from "./src/components/ReceiveAddress";
 import { SendNative } from "./src/components/SendNative";
 
