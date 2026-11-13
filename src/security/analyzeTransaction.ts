@@ -2,6 +2,7 @@ import { Interface, MaxUint256, isAddress } from "ethers";
 
 const ERC20_INTERFACE = new Interface([
   "function approve(address spender,uint256 value)",
+  "function approve(address token,address spender,uint160 amount,uint48 expiration)",
   "function permit(address owner,address spender,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)",
   "function setApprovalForAll(address operator,bool approved)",
   "function transfer(address to,uint256 value)",
@@ -39,6 +40,31 @@ export function analyzeEvmTransaction(data: string): TransactionAnalysis {
   try {
     const parsed = ERC20_INTERFACE.parseTransaction({ data });
     if (!parsed) throw new Error("Unknown method selector.");
+
+    if (parsed.signature === "approve(address,address,uint160,uint48)") {
+      const token = String(parsed.args[0]);
+      const spender = String(parsed.args[1]);
+      const amount = BigInt(parsed.args[2]);
+      const expiration = BigInt(parsed.args[3]);
+      const unlimited = amount === (1n << 160n) - 1n;
+      const revoking = amount === 0n;
+      if (!revoking) warnings.push("Permit2 approval gives a spender permission over this token.");
+      if (unlimited) warnings.push("The Permit2 amount is the maximum uint160 value.");
+      if (expiration === (1n << 48n) - 1n) warnings.push("The Permit2 approval expiration is the maximum uint48 value.");
+      return {
+        method: "Permit2 approve",
+        selector,
+        riskLevel: revoking ? "info" : unlimited ? "critical" : "high",
+        summary: revoking
+          ? "This Permit2 call sets the token allowance to zero."
+          : unlimited
+            ? "This Permit2 call grants a maximum-size token allowance."
+            : "This Permit2 call grants a token allowance to a spender.",
+        warnings,
+        addresses: [token, spender].filter((value) => isAddress(value)),
+        amountRaw: amount.toString()
+      };
+    }
 
     if (parsed.name === "approve") {
       const spender = String(parsed.args[0]);
