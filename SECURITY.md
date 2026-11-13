@@ -1,6 +1,6 @@
 # Security model and release gates
 
-TREX Wallet is an early-stage, non-custodial Android wallet. The current test build can create/import an EVM wallet, store its recovery phrase in authenticated device secure storage, read native balances, receive assets, and submit native-asset transfers. It has not been independently audited and must not be used to store meaningful assets.
+TREX Wallet is an early-stage, non-custodial Android wallet. The current test build can create/import an EVM wallet, store its recovery phrase in authenticated device secure storage, read native and manually added ERC-20 balances, receive assets, and submit native-asset or ERC-20 transfers on Sepolia testnets. It has not been independently audited and must not be used to store meaningful assets.
 
 ## Implemented protections
 
@@ -28,8 +28,8 @@ TREX Wallet is an early-stage, non-custodial Android wallet. The current test bu
 
 - Biometric enrollment is required. A recovery phrase remains essential if the device is lost, damaged, or biometric keys are invalidated.
 - Public RPC providers can observe the wallet address and network activity.
-- The current send flow supports native assets only. It does not decode arbitrary contract calls or ERC-20 approvals.
-- Native transfer preflight is not a scam detector. It cannot prove that a recipient belongs to the intended person.
+- ERC-20 support is limited to manual token contracts and simple transfer calls on Sepolia testnets. Arbitrary contract calls and ERC-20 approvals are not supported.
+- Native and ERC-20 transfer preflight is not a scam detector. It cannot prove that a recipient belongs to the intended person or that a token is legitimate.
 - A transaction marked submitted is not necessarily confirmed or successful.
 - The app does not yet implement WalletConnect, arbitrary contract interactions, swaps, bridging, or a production-grade security intelligence engine.
 
