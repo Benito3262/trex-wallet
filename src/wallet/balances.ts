@@ -37,6 +37,10 @@ export async function getNativeBalance(
 
   const provider = new JsonRpcProvider(rpcUrl, network.chainId, { staticNetwork: true });
   try {
+    const chainHex = await provider.send("eth_chainId", []);
+    if (Number(BigInt(chainHex)) !== network.chainId) {
+      throw new Error("RPC chain mismatch. Balance lookup was stopped.");
+    }
     const balance = await provider.getBalance(address);
     return Number(formatEther(balance)).toLocaleString("en-US", {
       maximumFractionDigits: 6
