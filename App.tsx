@@ -228,7 +228,7 @@ export default function App() {
                 </View>
               </View>
 
-              {walletAddress && !walletUnlocked && <WalletUnlock onUnlocked={(address) => { setWalletAddress(address); setWalletUnlocked(true); }} />}
+              {walletAddress && !walletUnlocked && <WalletUnlock onUnlocked={(address) => { setWalletAddress(address); setWalletUnlocked(true); }} onRestore={() => setSetupOpen(true)} />}
 
               <View style={styles.actions}>
                 <ActionTile icon="＋" label={walletAddress ? (walletUnlocked ? "Wallet ready" : "Unlock") : "Create wallet"} onPress={() => walletAddress ? undefined : setSetupOpen(true)} disabled={!!walletAddress} />
