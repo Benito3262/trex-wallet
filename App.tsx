@@ -198,18 +198,18 @@ export default function App() {
               <Text style={styles.sectionTitle}>TREX protection</Text>
               <Text style={styles.securityIntro}>A clear review before every signature. Security checks are being built in stages.</Text>
               {[
-                ["01", "Transaction decoding", "Understand the contract call before signing."],
-                ["02", "Approval warnings", "Spot unlimited token approvals and risky permissions."],
-                ["03", "Simulation checks", "Preview expected effects when simulation is available."],
-                ["04", "Local key protection", "Keep recovery material encrypted on your device."]
-              ].map(([number, title, description]) => (
+                ["01", "Native transfer preflight", "Check address syntax, chain ID, balance and estimated gas.", "TESTNET"],
+                ["02", "Encrypted local vault", "Recovery phrase protected by Android secure storage and biometrics.", "ACTIVE"],
+                ["03", "Recovery screen privacy", "Block screenshots and screen recording while words are visible.", "ACTIVE"],
+                ["04", "Contract risk engine", "Decode token approvals, Permit signatures and suspicious contract calls.", "PLANNED"]
+              ].map(([number, title, description, status]) => (
                 <View key={number} style={styles.securityItem}>
                   <Text style={styles.securityNumber}>{number}</Text>
                   <View style={styles.securityItemCopy}>
                     <Text style={styles.securityItemTitle}>{title}</Text>
                     <Text style={styles.securityItemText}>{description}</Text>
                   </View>
-                  <Text style={styles.pending}>PLANNED</Text>
+                  <Text style={styles.pending}>{status}</Text>
                 </View>
               ))}
             </View>
