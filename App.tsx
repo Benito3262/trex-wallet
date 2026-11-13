@@ -24,6 +24,7 @@ import { ReceiveAddress } from "./src/components/ReceiveAddress";
 import { SendNative } from "./src/components/SendNative";
 import { AddToken } from "./src/components/AddToken";
 import { SendToken } from "./src/components/SendToken";
+import { CalldataAnalyzer } from "./src/components/CalldataAnalyzer";
 import { getCustomTokens, removeCustomToken } from "./src/wallet/tokenStore";
 import { inspectErc20Token } from "./src/wallet/tokens";
 import type { TokenBalance, TokenMetadata } from "./src/wallet/tokens";
@@ -319,6 +320,7 @@ export default function App() {
                   <Text style={styles.pending}>{status}</Text>
                 </View>
               ))}
+              <CalldataAnalyzer />
             </View>
           )}
         </ScrollView>
