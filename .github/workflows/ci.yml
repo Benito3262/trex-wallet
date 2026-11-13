@@ -23,3 +23,5 @@ jobs:
         run: npx expo install --check
       - name: TypeScript
         run: npm run typecheck
+      - name: Unit tests
+        run: npm test -- --runInBand
