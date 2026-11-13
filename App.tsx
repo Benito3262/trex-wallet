@@ -196,7 +196,7 @@ export default function App() {
           {tab === "Security" && (
             <View style={styles.securityPage}>
               <Text style={styles.sectionTitle}>TREX protection</Text>
-              <Text style={styles.securityIntro}>A clear review before every signature. Security checks are being built in stages.</Text>
+              <Text style={styles.securityIntro}>Current protections cover wallet storage and native testnet transfers. Contract-level risk analysis is still under development.</Text>
               {[
                 ["01", "Native transfer preflight", "Check address syntax, chain ID, balance and estimated gas.", "TESTNET"],
                 ["02", "Encrypted local vault", "Recovery phrase protected by Android secure storage and biometrics.", "ACTIVE"],
