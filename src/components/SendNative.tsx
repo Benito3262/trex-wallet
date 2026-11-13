@@ -3,7 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import type { EvmNetwork } from "../config/networks";
 import { theme } from "../theme";
 import { loadWallet } from "../wallet/vault";
-import { NativeTransferPreview, prepareNativeTransfer, sendNativeTransfer } from "../wallet/transactions";
+import { prepareNativeTransfer, sendNativeTransfer } from "../wallet/transactions";
+import type { NativeTransferPreview } from "../wallet/transactions";
 import { recordTransaction } from "../wallet/history";
 
 export function SendNative({ address, network, onBack, onSent }: {
