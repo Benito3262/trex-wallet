@@ -15,6 +15,7 @@ import { WalletOnboarding } from "./src/components/WalletOnboarding";
 import { WalletUnlock } from "./src/components/WalletUnlock";
 import { getWalletAddress } from "./src/wallet/vault";
 import { getNativeBalance } from "./src/wallet/balances";
+import { ReceiveAddress } from "./src/components/ReceiveAddress";
 
 type Tab = "Wallet" | "Activity" | "Security";
 
@@ -49,6 +50,7 @@ export default function App() {
   const [walletUnlocked, setWalletUnlocked] = useState(false);
   const [nativeBalance, setNativeBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [receiveOpen, setReceiveOpen] = useState(false);
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
 
   useEffect(() => {
@@ -67,6 +69,15 @@ export default function App() {
     getWalletAddress().then((address) => { if (mounted && address) setWalletAddress(address); }).catch(() => undefined);
     return () => { mounted = false; };
   }, []);
+
+  if (receiveOpen && walletAddress) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <ReceiveAddress address={walletAddress} network={network} onBack={() => setReceiveOpen(false)} />
+      </SafeAreaView>
+    );
+  }
 
   if (setupOpen) {
     return (
@@ -123,7 +134,7 @@ export default function App() {
               <View style={styles.actions}>
                 <ActionTile icon="＋" label={walletAddress ? (walletUnlocked ? "Wallet ready" : "Unlock") : "Create wallet"} onPress={() => walletAddress ? undefined : setSetupOpen(true)} disabled={!!walletAddress} />
                 <ActionTile icon="↗" label="Send" disabled />
-                <ActionTile icon="↙" label="Receive" disabled />
+                <ActionTile icon="↙" label="Receive" onPress={() => setReceiveOpen(true)} disabled={!walletAddress} />
                 <ActionTile icon="⇄" label="Swap" disabled />
               </View>
 
