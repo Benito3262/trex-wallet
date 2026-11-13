@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
+  Linking,
   StyleSheet,
   Text,
   View
@@ -244,7 +245,7 @@ export default function App() {
                   <View style={styles.transactionCopy}>
                     <Text style={styles.transactionTitle}>Sent {tx.amount} {tx.symbol}</Text>
                     <Text style={styles.transactionMeta}>{tx.networkName} · {tx.status === "included" ? "Included in block" : tx.status === "failed" ? "Failed" : "Submitted"}</Text>
-                    <Text selectable style={styles.transactionHash}>{tx.hash.slice(0, 12)}...{tx.hash.slice(-8)}</Text>
+                    <Pressable onPress={() => { const chain = NETWORKS.find((item) => item.chainId === tx.chainId); if (chain) Linking.openURL(`${chain.explorer}/tx/${tx.hash}`).catch(() => undefined); }}><Text selectable style={styles.transactionHash}>{tx.hash.slice(0, 12)}...{tx.hash.slice(-8)} · VIEW</Text></Pressable>
                   </View>
                 </View>
               ))}
