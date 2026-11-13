@@ -25,6 +25,11 @@ const RPC: Record<number, string> = {
   84532: "https://sepolia.base.org"
 };
 
+const RPC_OVERRIDE: Record<number, string | undefined> = {
+  11155111: process.env.EXPO_PUBLIC_SEPOLIA_RPC_URL,
+  84532: process.env.EXPO_PUBLIC_BASE_SEPOLIA_RPC_URL
+};
+
 type FeeQuote =
   | { kind: "eip1559"; maxFeePerGas: bigint; maxPriorityFeePerGas: bigint; cap: bigint }
   | { kind: "legacy"; gasPrice: bigint; cap: bigint };
@@ -41,7 +46,7 @@ function providerFor(network: EvmNetwork) {
   if (!TESTNETS.has(network.chainId)) {
     throw new Error("ERC-20 transfers are restricted to Sepolia testnets in this development build.");
   }
-  const rpc = RPC[network.chainId];
+  const rpc = RPC_OVERRIDE[network.chainId] || RPC[network.chainId];
   if (!rpc) throw new Error("No testnet RPC endpoint is configured.");
   return new JsonRpcProvider(rpc, network.chainId, { staticNetwork: true });
 }
