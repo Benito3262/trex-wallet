@@ -63,9 +63,14 @@ function parseAmount(amount: string) {
   return value;
 }
 
-type FeeQuote =\n  | { kind: "eip1559"; maxFeePerGas: bigint; maxPriorityFeePerGas: bigint; cap: bigint }\n  | { kind: "legacy"; gasPrice: bigint; cap: bigint };\n\nfunction selectFee(feeData: FeeData): FeeQuote {
+type FeeQuote =
+  | { kind: "eip1559"; maxFeePerGas: bigint; maxPriorityFeePerGas: bigint; cap: bigint }
+  | { kind: "legacy"; gasPrice: bigint; cap: bigint };
+
+function selectFee(feeData: FeeData): FeeQuote {
   if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
     return {
+      kind: "eip1559",
       maxFeePerGas: feeData.maxFeePerGas,
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
       cap: feeData.maxFeePerGas
