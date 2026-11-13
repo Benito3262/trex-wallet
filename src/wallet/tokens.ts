@@ -24,6 +24,17 @@ const TOKEN_RPC: Record<number, string> = {
   84532: "https://sepolia.base.org"
 };
 
+const TOKEN_RPC_OVERRIDE: Record<number, string | undefined> = {
+  1: process.env.EXPO_PUBLIC_ETHEREUM_RPC_URL,
+  8453: process.env.EXPO_PUBLIC_BASE_RPC_URL,
+  56: process.env.EXPO_PUBLIC_BNB_RPC_URL,
+  42161: process.env.EXPO_PUBLIC_ARBITRUM_RPC_URL,
+  10: process.env.EXPO_PUBLIC_OPTIMISM_RPC_URL,
+  137: process.env.EXPO_PUBLIC_POLYGON_RPC_URL,
+  11155111: process.env.EXPO_PUBLIC_SEPOLIA_RPC_URL,
+  84532: process.env.EXPO_PUBLIC_BASE_SEPOLIA_RPC_URL
+};
+
 export type TokenMetadata = {
   chainId: number;
   contractAddress: string;
@@ -43,7 +54,7 @@ export async function inspectErc20Token(
 ): Promise<TokenBalance> {
   if (!isAddress(contractAddress)) throw new Error("Token contract address is invalid.");
   if (!isAddress(walletAddress)) throw new Error("Wallet address is invalid.");
-  const rpcUrl = TOKEN_RPC[network.chainId];
+  const rpcUrl = TOKEN_RPC_OVERRIDE[network.chainId] || TOKEN_RPC[network.chainId];
   if (!rpcUrl) throw new Error("No RPC endpoint is configured for this network.");
 
   const provider = new JsonRpcProvider(rpcUrl, network.chainId, { staticNetwork: true });
