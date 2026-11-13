@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { loadWallet } from "../wallet/vault";
 import { theme } from "../theme";
 
-export function WalletUnlock({ onUnlocked }: { onUnlocked: (address: string) => void }) {
+export function WalletUnlock({ onUnlocked, onRestore }: { onUnlocked: (address: string) => void; onRestore: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -32,6 +32,7 @@ export function WalletUnlock({ onUnlocked }: { onUnlocked: (address: string) => 
         <Text style={styles.buttonText}>{busy ? "WAITING FOR AUTHENTICATION..." : "UNLOCK WALLET"}</Text>
       </Pressable>
       {!!error && <Text style={styles.error}>{error}</Text>}
+      {!!error && <Pressable onPress={onRestore} style={styles.restoreButton}><Text style={styles.restoreText}>RESTORE WITH RECOVERY PHRASE</Text></Pressable>}
     </View>
   );
 }
@@ -42,5 +43,7 @@ const styles = StyleSheet.create({
   body: { color: theme.colors.muted, fontSize: 11, lineHeight: 18, marginTop: 7, marginBottom: 14 },
   button: { backgroundColor: theme.colors.primary, borderRadius: 12, padding: 13, alignItems: "center" },
   buttonText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
-  error: { color: theme.colors.danger, fontSize: 10, marginTop: 10 }
+  error: { color: theme.colors.danger, fontSize: 10, marginTop: 10 },
+  restoreButton: { alignItems: "center", paddingVertical: 12 },
+  restoreText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900", letterSpacing: 0.7 }
 });
