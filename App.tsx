@@ -57,6 +57,7 @@ export default function App() {
   const [balanceHidden, setBalanceHidden] = useState(true);
   const [tab, setTab] = useState<Tab>("Wallet");
   const [setupOpen, setSetupOpen] = useState(false);
+  const [restoreMode, setRestoreMode] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [walletUnlocked, setWalletUnlocked] = useState(false);
   const [nativeBalance, setNativeBalance] = useState<string | null>(null);
@@ -163,8 +164,9 @@ export default function App() {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
         <WalletOnboarding
-          onCancel={() => setSetupOpen(false)}
-          onComplete={(address) => { setWalletAddress(address); setWalletUnlocked(true); setSetupOpen(false); setTab("Wallet"); }}
+          initialMode={restoreMode ? "import" : "choose"}
+          onCancel={() => { setSetupOpen(false); setRestoreMode(false); }}
+          onComplete={(address) => { setWalletAddress(address); setWalletUnlocked(true); setSetupOpen(false); setRestoreMode(false); setTab("Wallet"); }}
         />
       </SafeAreaView>
     );
@@ -228,7 +230,7 @@ export default function App() {
                 </View>
               </View>
 
-              {walletAddress && !walletUnlocked && <WalletUnlock onUnlocked={(address) => { setWalletAddress(address); setWalletUnlocked(true); }} onRestore={() => setSetupOpen(true)} />}
+              {walletAddress && !walletUnlocked && <WalletUnlock onUnlocked={(address) => { setWalletAddress(address); setWalletUnlocked(true); }} onRestore={() => { setRestoreMode(true); setSetupOpen(true); }} />}
 
               <View style={styles.actions}>
                 <ActionTile icon="＋" label={walletAddress ? (walletUnlocked ? "Wallet ready" : "Unlock") : "Create wallet"} onPress={() => walletAddress ? undefined : setSetupOpen(true)} disabled={!!walletAddress} />
