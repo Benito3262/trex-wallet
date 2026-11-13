@@ -8,6 +8,7 @@ on:
       - "App.tsx"
       - "app.json"
       - "package.json"
+      - "tsconfig.json"
       - "src/**"
       - "assets/**"
       - ".github/workflows/android-apk.yml"
