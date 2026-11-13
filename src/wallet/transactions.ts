@@ -157,7 +157,7 @@ export async function sendNativeTransfer(
       value,
       gasLimit,
       chainId: network.chainId,
-      ...(fee.maxFeePerGas && fee.maxPriorityFeePerGas
+      ...(fee.kind === "eip1559"
         ? { maxFeePerGas: fee.maxFeePerGas, maxPriorityFeePerGas: fee.maxPriorityFeePerGas }
         : { gasPrice: fee.gasPrice })
     };
