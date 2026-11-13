@@ -4,6 +4,7 @@ import {
   Pressable,
   ScrollView,
   Linking,
+  Modal,
   StyleSheet,
   Text,
   View
@@ -65,6 +66,7 @@ export default function App() {
   const [tokenRefreshKey, setTokenRefreshKey] = useState(0);
   const [customTokens, setCustomTokens] = useState<TokenBalance[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenMetadata | null>(null);
+  const [networkPickerOpen, setNetworkPickerOpen] = useState(false);
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
 
   useEffect(() => {
@@ -154,12 +156,32 @@ export default function App() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.page}>
+      <Modal visible={networkPickerOpen} transparent animationType="fade" onRequestClose={() => setNetworkPickerOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setNetworkPickerOpen(false)}>
+          <Pressable style={styles.networkModal} onPress={() => undefined}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Choose network</Text>
+              <Pressable onPress={() => setNetworkPickerOpen(false)}><Text style={styles.modalClose}>CLOSE</Text></Pressable>
+            </View>
+            {NETWORKS.map((item, index) => (
+              <Pressable key={item.chainId} style={[styles.networkOption, item.chainId === network.chainId && styles.networkOptionActive]} onPress={() => { setNetworkIndex(index); setNetworkPickerOpen(false); }}>
+                <View style={styles.networkOptionCopy}>
+                  <Text style={styles.networkOptionName}>{item.name}</Text>
+                  <Text style={styles.networkOptionMeta}>Chain {item.chainId} · {item.chainId === 11155111 || item.chainId === 84532 ? "TESTNET" : "MAINNET"}</Text>
+                </View>
+                {item.chainId === network.chainId && <Text style={styles.networkSelected}>SELECTED</Text>}
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
         <View style={styles.header}>
           <View>
             <Text style={styles.brand}>TREX<Text style={styles.brandAccent}>.</Text></Text>
             <Text style={styles.brandCaption}>YOUR EVM WALLET</Text>
           </View>
-          <Pressable style={styles.networkPill} onPress={() => setNetworkIndex((networkIndex + 1) % NETWORKS.length)}>
+          <Pressable style={styles.networkPill} onPress={() => setNetworkPickerOpen(true)}>
             <View style={styles.networkDot} />
             <Text style={styles.networkText}>{network.shortName}</Text>
             <Text style={styles.chevron}>⌄</Text>
@@ -298,6 +320,17 @@ const styles = StyleSheet.create({
   brandCaption: { color: theme.colors.muted, fontSize: 8, fontWeight: "700", letterSpacing: 2.1, marginTop: -2 },
   networkPill: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 30, paddingVertical: 10, paddingHorizontal: 13 },
   networkDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: theme.colors.success },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", justifyContent: "center", padding: 20 },
+  networkModal: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 22, padding: 18, maxHeight: "82%" },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  modalTitle: { color: theme.colors.text, fontSize: 17, fontWeight: "900" },
+  modalClose: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  networkOption: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: theme.colors.border, borderRadius: 10, paddingHorizontal: 8 },
+  networkOptionActive: { backgroundColor: "#241B35" },
+  networkOptionCopy: { flex: 1 },
+  networkOptionName: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
+  networkOptionMeta: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },
+  networkSelected: { color: theme.colors.primaryBright, fontSize: 8, fontWeight: "900" },
   networkText: { color: theme.colors.text, fontSize: 12, fontWeight: "700" },
   chevron: { color: theme.colors.muted, fontSize: 16, marginTop: -4 },
   content: { paddingHorizontal: 20, paddingBottom: 18 },
