@@ -166,7 +166,7 @@ export function WalletOnboarding({ onComplete, onCancel }: Props) {
           <>
             <Text style={styles.kicker}>RESTORE AN EXISTING WALLET</Text>
             <Text style={styles.title}>Import recovery phrase</Text>
-            <Text style={styles.body}>Enter your 12 or 24-word phrase on this device only. It is used locally to derive your address and save the encrypted wallet.</Text>
+            <Text style={styles.body}>Enter your 12 or 24-word phrase on this device only. It is used locally to derive your address and save the encrypted wallet. Disable keyboard learning for sensitive input if your keyboard offers that setting.</Text>
             <TextInput
               value={mnemonic}
               onChangeText={setMnemonic}
@@ -174,6 +174,8 @@ export function WalletOnboarding({ onComplete, onCancel }: Props) {
               autoCapitalize="none"
               autoCorrect={false}
               spellCheck={false}
+              autoComplete="off"
+              importantForAutofill="no"
               placeholder="Enter your recovery words separated by spaces"
               placeholderTextColor={theme.colors.muted}
               style={[styles.input, styles.phraseInput]}
