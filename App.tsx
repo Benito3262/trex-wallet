@@ -15,7 +15,7 @@ import { WalletOnboarding } from "./src/components/WalletOnboarding";
 import { WalletUnlock } from "./src/components/WalletUnlock";
 import { getWalletAddress } from "./src/wallet/vault";
 import { getNativeBalance } from "./src/wallet/balances";
-import { getRecentTransactions, type WalletTransaction } from "./src/wallet/history";
+import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
 import { ReceiveAddress } from "./src/components/ReceiveAddress";
 import { SendNative } from "./src/components/SendNative";
 
@@ -78,7 +78,7 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
-        <SendNative address={walletAddress} network={network} onBack={() => setSendOpen(false)} onSent={() => { getRecentTransactions().then(setTransactions).catch(() => undefined); setSendOpen(false); setTab("Activity"); }} />
+        <SendNative address={walletAddress} network={network} onBack={() => setSendOpen(false)} onSent={() => { refreshRecentTransactions().then(setTransactions).catch(() => undefined); setSendOpen(false); setTab("Activity"); }} />
       </SafeAreaView>
     );
   }
@@ -185,7 +185,7 @@ export default function App() {
                   <View style={styles.transactionIcon}><Text style={styles.transactionIconText}>↗</Text></View>
                   <View style={styles.transactionCopy}>
                     <Text style={styles.transactionTitle}>Sent {tx.amount} {tx.symbol}</Text>
-                    <Text style={styles.transactionMeta}>{tx.networkName} · Submitted</Text>
+                    <Text style={styles.transactionMeta}>{tx.networkName} · {tx.status === "included" ? "Included in block" : tx.status === "failed" ? "Failed" : "Submitted"}</Text>
                     <Text selectable style={styles.transactionHash}>{tx.hash.slice(0, 12)}...{tx.hash.slice(-8)}</Text>
                   </View>
                 </View>
