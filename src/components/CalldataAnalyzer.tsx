@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { theme } from "../theme";
-import { analyzeEvmTransaction, TransactionAnalysis } from "../security/analyzeTransaction";
+import { analyzeEvmTransaction } from "../security/analyzeTransaction";
+import type { TransactionAnalysis } from "../security/analyzeTransaction";
 
 const riskColor = (risk: TransactionAnalysis["riskLevel"]) => {
   if (risk === "critical") return theme.colors.danger;
