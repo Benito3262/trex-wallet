@@ -1,6 +1,15 @@
 import { formatEther, JsonRpcProvider } from "ethers";
 import { EvmNetwork } from "../config/networks";
 
+const RPC_OVERRIDES: Record<number, string | undefined> = {
+  1: process.env.EXPO_PUBLIC_ETHEREUM_RPC_URL,
+  8453: process.env.EXPO_PUBLIC_BASE_RPC_URL,
+  56: process.env.EXPO_PUBLIC_BNB_RPC_URL,
+  42161: process.env.EXPO_PUBLIC_ARBITRUM_RPC_URL,
+  10: process.env.EXPO_PUBLIC_OPTIMISM_RPC_URL,
+  137: process.env.EXPO_PUBLIC_POLYGON_RPC_URL
+};
+
 const PUBLIC_RPC: Record<number, string> = {
   1: "https://cloudflare-eth.com",
   8453: "https://mainnet.base.org",
@@ -19,7 +28,7 @@ export async function getNativeBalance(
   network: EvmNetwork,
   address: string
 ): Promise<string> {
-  const rpcUrl = process.env[network.rpcEnvKey] || PUBLIC_RPC[network.chainId];
+  const rpcUrl = RPC_OVERRIDES[network.chainId] || PUBLIC_RPC[network.chainId];
   if (!rpcUrl) throw new Error("No RPC endpoint is configured for this network.");
 
   const provider = new JsonRpcProvider(rpcUrl, network.chainId, { staticNetwork: true });
