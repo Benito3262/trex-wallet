@@ -170,7 +170,7 @@ export default function App() {
             <>
               <View style={styles.balanceCard}>
                 <View style={styles.cardTopRow}>
-                  <Text style={styles.eyebrow}>TOTAL PORTFOLIO</Text>
+                  <Text style={styles.eyebrow}>NATIVE BALANCE</Text>
                   <Pressable onPress={() => setBalanceHidden(!balanceHidden)} accessibilityLabel={balanceHidden ? "Show balance" : "Hide balance"}>
                     <Text style={styles.eye}>{balanceHidden ? "◉" : "◎"}</Text>
                   </Pressable>
