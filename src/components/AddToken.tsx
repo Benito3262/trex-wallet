@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { EvmNetwork } from "../config/networks";
 import { theme } from "../theme";
-import { inspectErc20Token, TokenBalance } from "../wallet/tokens";
+import { inspectErc20Token } from "../wallet/tokens";
+import type { TokenBalance } from "../wallet/tokens";
 import { saveCustomToken } from "../wallet/tokenStore";
 
 export function AddToken({ network, walletAddress, onBack, onAdded }: {
