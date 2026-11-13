@@ -11,6 +11,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { DEFAULT_NETWORK, NETWORKS } from "./src/config/networks";
 import { theme } from "./src/theme";
+import { WalletOnboarding } from "./src/components/WalletOnboarding";
 
 type Tab = "Wallet" | "Activity" | "Security";
 
@@ -40,6 +41,20 @@ export default function App() {
   );
   const [balanceHidden, setBalanceHidden] = useState(true);
   const [tab, setTab] = useState<Tab>("Wallet");
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+
+  if (setupOpen) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <WalletOnboarding
+          onCancel={() => setSetupOpen(false)}
+          onComplete={(address) => { setWalletAddress(address); setSetupOpen(false); setTab("Wallet"); }}
+        />
+      </SafeAreaView>
+    );
+  }
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
 
   return (
@@ -69,7 +84,7 @@ export default function App() {
                   </Pressable>
                 </View>
                 <Text style={styles.balance}>{balanceHidden ? "••••••••" : "$0.00"}</Text>
-                <Text style={styles.balanceFootnote}>No wallet connected yet</Text>
+                <Text style={styles.balanceFootnote}>{walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}` : "No wallet connected yet"}</Text>
                 <View style={styles.cardDivider} />
                 <View style={styles.addressRow}>
                   <View>
@@ -81,7 +96,7 @@ export default function App() {
               </View>
 
               <View style={styles.actions}>
-                <ActionTile icon="＋" label="Create wallet" disabled />
+                <ActionTile icon="＋" label={walletAddress ? "Wallet ready" : "Create wallet"} onPress={() => setSetupOpen(true)} disabled={!!walletAddress} />
                 <ActionTile icon="↗" label="Send" disabled />
                 <ActionTile icon="↙" label="Receive" disabled />
                 <ActionTile icon="⇄" label="Swap" disabled />
