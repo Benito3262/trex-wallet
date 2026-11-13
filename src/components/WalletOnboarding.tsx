@@ -12,6 +12,7 @@ import {
 import { createWalletIdentity, deriveWalletFromPhrase } from "../wallet/identity";
 import { saveWallet } from "../wallet/vault";
 import { theme } from "../theme";
+import { usePreventScreenCapture } from "expo-screen-capture";
 
 type Props = {
   onComplete: (address: string) => void;
@@ -28,6 +29,7 @@ const buttonStyle = {
 };
 
 export function WalletOnboarding({ onComplete, onCancel }: Props) {
+  usePreventScreenCapture();
   const [step, setStep] = useState<Step>("choose");
   const [mnemonic, setMnemonic] = useState("");
   const [address, setAddress] = useState("");
