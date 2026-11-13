@@ -11,7 +11,7 @@ const erc20 = new Interface([
 
 describe("EVM transaction risk analysis", () => {
   it("flags maximum ERC-20 approvals as critical", () => {
-    const data = erc20.encodeFunctionData("approve", [
+    const data = erc20.encodeFunctionData("approve(address,uint256)", [
       "0x000000000000000000000000000000000000dead",
       MaxUint256
     ]);
