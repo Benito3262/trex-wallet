@@ -50,6 +50,7 @@ export type NativeTransferPreview = {
   estimatedNetworkFee: string;
   totalMaximum: string;
   balance: string;
+  recipientIsContract: boolean;
 };
 
 function providerFor(network: EvmNetwork) {
@@ -107,10 +108,11 @@ export async function prepareNativeTransfer(
   const provider = providerFor(network);
   try {
     await assertExpectedChain(provider, network);
-    const [balance, gasLimit, feeData] = await Promise.all([
+    const [balance, gasLimit, feeData, recipientCode] = await Promise.all([
       provider.getBalance(from),
       provider.estimateGas({ from, to, value }),
-      provider.getFeeData()
+      provider.getFeeData(),
+      provider.getCode(to)
     ]);
     const fee = selectFee(feeData);
     const estimatedFee = gasLimit * fee.cap;
@@ -126,7 +128,8 @@ export async function prepareNativeTransfer(
       maxFeePerGas: formatEther(fee.cap),
       estimatedNetworkFee: formatEther(estimatedFee),
       totalMaximum: formatEther(value + estimatedFee),
-      balance: formatEther(balance)
+      balance: formatEther(balance),
+      recipientIsContract: recipientCode !== "0x"
     };
   } finally {
     provider.destroy();
