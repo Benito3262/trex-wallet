@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import { WalletIdentity } from "./identity";
+import type { WalletIdentity } from "./identity";
 
 const VAULT_KEY = "trex.wallet.v1";
 const PUBLIC_ADDRESS_KEY = "trex.wallet.public-address.v1";
