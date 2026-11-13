@@ -146,7 +146,7 @@ export default function App() {
 
               <View style={styles.actions}>
                 <ActionTile icon="＋" label={walletAddress ? (walletUnlocked ? "Wallet ready" : "Unlock") : "Create wallet"} onPress={() => walletAddress ? undefined : setSetupOpen(true)} disabled={!!walletAddress} />
-                <ActionTile icon="↗" label="Send" onPress={() => setSendOpen(true)} disabled={!walletAddress} />
+                <ActionTile icon="↗" label={network.chainId === 11155111 || network.chainId === 84532 ? "Send" : "Testnet only"} onPress={() => setSendOpen(true)} disabled={!walletAddress || (network.chainId !== 11155111 && network.chainId !== 84532)} />
                 <ActionTile icon="↙" label="Receive" onPress={() => setReceiveOpen(true)} disabled={!walletAddress} />
                 <ActionTile icon="⇄" label="Swap" disabled />
               </View>
