@@ -1,4 +1,4 @@
-import { Interface, MaxUint256, formatUnits, isAddress } from "ethers";
+import { Interface, MaxUint256, isAddress } from "ethers";
 
 const ERC20_INTERFACE = new Interface([
   "function approve(address spender,uint256 value)",
