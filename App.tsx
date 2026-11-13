@@ -1,0 +1,214 @@
+import "react-native-get-random-values";
+import React, { useMemo, useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { DEFAULT_NETWORK, NETWORKS } from "./src/config/networks";
+import { theme } from "./src/theme";
+
+type Tab = "Wallet" | "Activity" | "Security";
+
+function ActionTile({ icon, label, onPress, disabled = false }: {
+  icon: string;
+  label: string;
+  onPress?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.actionTile, pressed && !disabled && styles.pressed, disabled && styles.disabled]}
+    >
+      <Text style={styles.actionIcon}>{icon}</Text>
+      <Text style={styles.actionLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
+export default function App() {
+  const [networkIndex, setNetworkIndex] = useState(
+    NETWORKS.findIndex((network) => network.chainId === DEFAULT_NETWORK.chainId)
+  );
+  const [balanceHidden, setBalanceHidden] = useState(true);
+  const [tab, setTab] = useState<Tab>("Wallet");
+  const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="light" />
+      <View style={styles.page}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.brand}>TREX<Text style={styles.brandAccent}>.</Text></Text>
+            <Text style={styles.brandCaption}>YOUR EVM WALLET</Text>
+          </View>
+          <Pressable style={styles.networkPill} onPress={() => setNetworkIndex((networkIndex + 1) % NETWORKS.length)}>
+            <View style={styles.networkDot} />
+            <Text style={styles.networkText}>{network.shortName}</Text>
+            <Text style={styles.chevron}>⌄</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {tab === "Wallet" && (
+            <>
+              <View style={styles.balanceCard}>
+                <View style={styles.cardTopRow}>
+                  <Text style={styles.eyebrow}>TOTAL PORTFOLIO</Text>
+                  <Pressable onPress={() => setBalanceHidden(!balanceHidden)} accessibilityLabel={balanceHidden ? "Show balance" : "Hide balance"}>
+                    <Text style={styles.eye}>{balanceHidden ? "◉" : "◎"}</Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.balance}>{balanceHidden ? "••••••••" : "$0.00"}</Text>
+                <Text style={styles.balanceFootnote}>No wallet connected yet</Text>
+                <View style={styles.cardDivider} />
+                <View style={styles.addressRow}>
+                  <View>
+                    <Text style={styles.eyebrow}>ACTIVE NETWORK</Text>
+                    <Text style={styles.networkName}>{network.name}</Text>
+                  </View>
+                  <View style={styles.chainBadge}><Text style={styles.chainBadgeText}>CHAIN {network.chainId}</Text></View>
+                </View>
+              </View>
+
+              <View style={styles.actions}>
+                <ActionTile icon="＋" label="Create wallet" disabled />
+                <ActionTile icon="↗" label="Send" disabled />
+                <ActionTile icon="↙" label="Receive" disabled />
+                <ActionTile icon="⇄" label="Swap" disabled />
+              </View>
+
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Assets</Text>
+                <Text style={styles.sectionMeta}>{network.name}</Text>
+              </View>
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyIcon}><Text style={styles.emptyIconText}>◇</Text></View>
+                <Text style={styles.emptyTitle}>Your assets will appear here</Text>
+                <Text style={styles.emptyText}>Create or import a wallet to see balances and tokens across your EVM networks.</Text>
+              </View>
+
+              <View style={styles.securityBanner}>
+                <View style={styles.shield}><Text style={styles.shieldText}>✦</Text></View>
+                <View style={styles.securityCopy}>
+                  <Text style={styles.securityTitle}>Security comes first</Text>
+                  <Text style={styles.securityText}>Every transaction will be explained before you sign.</Text>
+                </View>
+              </View>
+            </>
+          )}
+
+          {tab === "Activity" && (
+            <View style={styles.tabEmpty}>
+              <Text style={styles.tabEmptyIcon}>↻</Text>
+              <Text style={styles.emptyTitle}>Activity will live here</Text>
+              <Text style={styles.emptyText}>Your on-chain transaction history will appear after a wallet is set up.</Text>
+            </View>
+          )}
+
+          {tab === "Security" && (
+            <View style={styles.securityPage}>
+              <Text style={styles.sectionTitle}>TREX protection</Text>
+              <Text style={styles.securityIntro}>A clear review before every signature. Security checks are being built in stages.</Text>
+              {[
+                ["01", "Transaction decoding", "Understand the contract call before signing."],
+                ["02", "Approval warnings", "Spot unlimited token approvals and risky permissions."],
+                ["03", "Simulation checks", "Preview expected effects when simulation is available."],
+                ["04", "Local key protection", "Keep recovery material encrypted on your device."]
+              ].map(([number, title, description]) => (
+                <View key={number} style={styles.securityItem}>
+                  <Text style={styles.securityNumber}>{number}</Text>
+                  <View style={styles.securityItemCopy}>
+                    <Text style={styles.securityItemTitle}>{title}</Text>
+                    <Text style={styles.securityItemText}>{description}</Text>
+                  </View>
+                  <Text style={styles.pending}>PLANNED</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+
+        <View style={styles.bottomNav}>
+          {(["Wallet", "Activity", "Security"] as Tab[]).map((item) => (
+            <Pressable key={item} style={styles.navItem} onPress={() => setTab(item)}>
+              <Text style={[styles.navIcon, tab === item && styles.navActive]}>{item === "Wallet" ? "◇" : item === "Activity" ? "↻" : "⬡"}</Text>
+              <Text style={[styles.navLabel, tab === item && styles.navActive]}>{item}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.disclaimer}>EARLY PREVIEW · DO NOT USE WITH REAL FUNDS</Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
+  page: { flex: 1, backgroundColor: theme.colors.background },
+  header: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  brand: { color: theme.colors.text, fontSize: 29, fontWeight: "900", letterSpacing: 2.2 },
+  brandAccent: { color: theme.colors.primaryBright },
+  brandCaption: { color: theme.colors.muted, fontSize: 8, fontWeight: "700", letterSpacing: 2.1, marginTop: -2 },
+  networkPill: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 30, paddingVertical: 10, paddingHorizontal: 13 },
+  networkDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: theme.colors.success },
+  networkText: { color: theme.colors.text, fontSize: 12, fontWeight: "700" },
+  chevron: { color: theme.colors.muted, fontSize: 16, marginTop: -4 },
+  content: { paddingHorizontal: 20, paddingBottom: 18 },
+  balanceCard: { backgroundColor: theme.colors.surface, borderRadius: 25, padding: 22, borderWidth: 1, borderColor: theme.colors.border },
+  cardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  eyebrow: { color: theme.colors.muted, fontSize: 9, fontWeight: "800", letterSpacing: 1.6 },
+  eye: { color: theme.colors.primaryBright, fontSize: 19 },
+  balance: { color: theme.colors.text, fontSize: 36, fontWeight: "800", letterSpacing: 1, marginTop: 13 },
+  balanceFootnote: { color: theme.colors.muted, fontSize: 11, marginTop: 5 },
+  cardDivider: { height: 1, backgroundColor: theme.colors.border, marginVertical: 20 },
+  addressRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  networkName: { color: theme.colors.text, fontSize: 14, fontWeight: "700", marginTop: 6 },
+  chainBadge: { backgroundColor: "#2A1C3D", paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 },
+  chainBadgeText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "800", letterSpacing: 1 },
+  actions: { flexDirection: "row", gap: 10, marginTop: 18 },
+  actionTile: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 16, paddingVertical: 15, gap: 8 },
+  pressed: { opacity: 0.7 },
+  disabled: { opacity: 0.42 },
+  actionIcon: { color: theme.colors.primaryBright, fontSize: 22, fontWeight: "500" },
+  actionLabel: { color: theme.colors.text, fontSize: 9, fontWeight: "700" },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 30, marginBottom: 13 },
+  sectionTitle: { color: theme.colors.text, fontSize: 18, fontWeight: "800" },
+  sectionMeta: { color: theme.colors.muted, fontSize: 10 },
+  emptyCard: { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 20, padding: 23, alignItems: "center" },
+  emptyIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center", marginBottom: 13 },
+  emptyIconText: { color: theme.colors.primaryBright, fontSize: 26 },
+  emptyTitle: { color: theme.colors.text, fontSize: 14, fontWeight: "800", textAlign: "center" },
+  emptyText: { color: theme.colors.muted, fontSize: 11, lineHeight: 18, textAlign: "center", marginTop: 7, maxWidth: 270 },
+  securityBanner: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 17, backgroundColor: "#171326", borderRadius: 17, padding: 15, borderWidth: 1, borderColor: "#38234F" },
+  shield: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#34204C", alignItems: "center", justifyContent: "center" },
+  shieldText: { color: theme.colors.primaryBright, fontSize: 18 },
+  securityCopy: { flex: 1 },
+  securityTitle: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
+  securityText: { color: theme.colors.muted, fontSize: 10, marginTop: 4 },
+  tabEmpty: { flex: 1, minHeight: 400, alignItems: "center", justifyContent: "center", paddingHorizontal: 25 },
+  tabEmptyIcon: { color: theme.colors.primaryBright, fontSize: 40, marginBottom: 14 },
+  securityPage: { paddingTop: 12 },
+  securityIntro: { color: theme.colors.muted, fontSize: 12, lineHeight: 19, marginTop: 8, marginBottom: 20 },
+  securityItem: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 17, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  securityNumber: { color: theme.colors.primaryBright, fontSize: 12, fontWeight: "900" },
+  securityItemCopy: { flex: 1 },
+  securityItemTitle: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
+  securityItemText: { color: theme.colors.muted, fontSize: 10, marginTop: 4 },
+  pending: { color: theme.colors.warning, fontSize: 8, fontWeight: "900", letterSpacing: 0.6 },
+  bottomNav: { flexDirection: "row", justifyContent: "space-around", paddingTop: 13, paddingBottom: 8, borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.background },
+  navItem: { alignItems: "center", gap: 4, minWidth: 70 },
+  navIcon: { color: theme.colors.muted, fontSize: 19 },
+  navLabel: { color: theme.colors.muted, fontSize: 9, fontWeight: "700" },
+  navActive: { color: theme.colors.primaryBright },
+  disclaimer: { color: "#766C87", fontSize: 8, textAlign: "center", letterSpacing: 1.1, paddingBottom: 5, paddingTop: 3 }
+});
