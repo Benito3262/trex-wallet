@@ -19,9 +19,10 @@ import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/
 import { ReceiveAddress } from "./src/components/ReceiveAddress";
 import { SendNative } from "./src/components/SendNative";
 import { AddToken } from "./src/components/AddToken";
+import { SendToken } from "./src/components/SendToken";
 import { getCustomTokens } from "./src/wallet/tokenStore";
 import { inspectErc20Token } from "./src/wallet/tokens";
-import type { TokenBalance } from "./src/wallet/tokens";
+import type { TokenBalance, TokenMetadata } from "./src/wallet/tokens";
 
 type Tab = "Wallet" | "Activity" | "Security";
 
@@ -62,6 +63,7 @@ export default function App() {
   const [addTokenOpen, setAddTokenOpen] = useState(false);
   const [tokenRefreshKey, setTokenRefreshKey] = useState(0);
   const [customTokens, setCustomTokens] = useState<TokenBalance[]>([]);
+  const [selectedToken, setSelectedToken] = useState<TokenMetadata | null>(null);
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
 
   useEffect(() => {
@@ -99,7 +101,7 @@ export default function App() {
     return () => { mounted = false; };
   }, []);
 
-  if (addTokenOpen && walletAddress) {
+  if (selectedToken && walletAddress) {\n    return (\n      <SafeAreaView style={styles.safeArea}>\n        <StatusBar style="light" />\n        <SendToken address={walletAddress} network={network} token={selectedToken} onBack={() => setSelectedToken(null)} onSent={() => { refreshRecentTransactions().then(setTransactions).catch(() => undefined); setSelectedToken(null); setTab("Activity"); }} />\n      </SafeAreaView>\n    );\n  }\n\n  if (addTokenOpen && walletAddress) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
@@ -198,14 +200,14 @@ export default function App() {
                   <Text style={styles.emptyText}>{walletAddress ? "Add an ERC-20 contract address to read its balance on this network." : "Create or import a wallet to see balances and tokens across your EVM networks."}</Text>
                 </View>
               ) : customTokens.map((token) => (
-                <View key={token.contractAddress} style={styles.tokenRow}>
+                <Pressable key={token.contractAddress} style={styles.tokenRow} disabled={network.chainId !== 11155111 && network.chainId !== 84532} onPress={() => setSelectedToken(token)}>
                   <View style={styles.tokenSymbolBubble}><Text style={styles.tokenSymbolText}>{token.symbol.slice(0, 3).toUpperCase()}</Text></View>
                   <View style={styles.tokenDetails}>
                     <Text style={styles.tokenNameText}>{token.name}</Text>
-                    <Text style={styles.tokenMetaText}>{token.symbol} · Unverified contract</Text>
+                    <Text style={styles.tokenMetaText}>{token.symbol} · {network.chainId === 11155111 || network.chainId === 84532 ? "Tap to send · Unverified" : "Unverified contract"}</Text>
                   </View>
                   <Text style={styles.tokenBalanceText}>{token.balance}</Text>
-                </View>
+                </Pressable>
               ))}
 
               <View style={styles.securityBanner}>
