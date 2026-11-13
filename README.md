@@ -1,5 +1,7 @@
 # TREX Wallet
 
+[![CI](https://github.com/Benito3262/trex-wallet/actions/workflows/ci.yml/badge.svg)](https://github.com/Benito3262/trex-wallet/actions/workflows/ci.yml) [![Android APK](https://github.com/Benito3262/trex-wallet/actions/workflows/android-apk.yml/badge.svg)](https://github.com/Benito3262/trex-wallet/actions/workflows/android-apk.yml)
+
 TREX Wallet is a personal, non-custodial EVM wallet for Android. Its design priority is transaction clarity, local key protection, and security warnings before signing.
 
 > **Status: early test build.** The app is under active development and has not had an independent security audit. Use test networks and test funds only. Do not store meaningful assets in this build.
