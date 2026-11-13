@@ -288,5 +288,12 @@ const styles = StyleSheet.create({
   navIcon: { color: theme.colors.muted, fontSize: 19 },
   navLabel: { color: theme.colors.muted, fontSize: 9, fontWeight: "700" },
   navActive: { color: theme.colors.primaryBright },
-  transactionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border },\n  transactionIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center" },\n  transactionIconText: { color: theme.colors.primaryBright, fontSize: 17 },\n  transactionCopy: { flex: 1 },\n  transactionTitle: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },\n  transactionMeta: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },\n  transactionHash: { color: theme.colors.primaryBright, fontSize: 9, marginTop: 4 },\n  disclaimer: { color: "#766C87", fontSize: 8, textAlign: "center", letterSpacing: 1.1, paddingBottom: 5, paddingTop: 3 }
+  transactionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  transactionIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center" },
+  transactionIconText: { color: theme.colors.primaryBright, fontSize: 17 },
+  transactionCopy: { flex: 1 },
+  transactionTitle: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
+  transactionMeta: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },
+  transactionHash: { color: theme.colors.primaryBright, fontSize: 9, marginTop: 4 },
+  disclaimer: { color: "#766C87", fontSize: 8, textAlign: "center", letterSpacing: 1.1, paddingBottom: 5, paddingTop: 3 }
 });
