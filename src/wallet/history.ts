@@ -78,13 +78,24 @@ const HISTORY_RPC: Record<number, string> = {
   84532: "https://sepolia.base.org"
 };
 
+const HISTORY_RPC_OVERRIDE: Record<number, string | undefined> = {
+  1: process.env.EXPO_PUBLIC_ETHEREUM_RPC_URL,
+  8453: process.env.EXPO_PUBLIC_BASE_RPC_URL,
+  56: process.env.EXPO_PUBLIC_BNB_RPC_URL,
+  42161: process.env.EXPO_PUBLIC_ARBITRUM_RPC_URL,
+  10: process.env.EXPO_PUBLIC_OPTIMISM_RPC_URL,
+  137: process.env.EXPO_PUBLIC_POLYGON_RPC_URL,
+  11155111: process.env.EXPO_PUBLIC_SEPOLIA_RPC_URL,
+  84532: process.env.EXPO_PUBLIC_BASE_SEPOLIA_RPC_URL
+};
+
 /** Refresh a small recent window; "included" means mined, not final settlement. */
 export async function refreshRecentTransactions(): Promise<WalletTransaction[]> {
   const items = await getRecentTransactions(20);
   for (const tx of items) {
     if (tx.status !== "submitted") continue;
     const network = NETWORKS.find((item) => item.chainId === tx.chainId);
-    const rpc = HISTORY_RPC[tx.chainId];
+    const rpc = HISTORY_RPC_OVERRIDE[tx.chainId] || HISTORY_RPC[tx.chainId];
     if (!network || !rpc) continue;
 
     const provider = new JsonRpcProvider(rpc, tx.chainId, { staticNetwork: true });
