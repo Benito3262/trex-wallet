@@ -1,5 +1,5 @@
 import "react-native-get-random-values";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -12,6 +12,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { DEFAULT_NETWORK, NETWORKS } from "./src/config/networks";
 import { theme } from "./src/theme";
 import { WalletOnboarding } from "./src/components/WalletOnboarding";
+import { WalletUnlock } from "./src/components/WalletUnlock";
+import { getWalletAddress } from "./src/wallet/vault";
 
 type Tab = "Wallet" | "Activity" | "Security";
 
@@ -43,6 +45,13 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("Wallet");
   const [setupOpen, setSetupOpen] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [walletUnlocked, setWalletUnlocked] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    getWalletAddress().then((address) => { if (mounted && address) setWalletAddress(address); }).catch(() => undefined);
+    return () => { mounted = false; };
+  }, []);
 
   if (setupOpen) {
     return (
@@ -50,7 +59,7 @@ export default function App() {
         <StatusBar style="light" />
         <WalletOnboarding
           onCancel={() => setSetupOpen(false)}
-          onComplete={(address) => { setWalletAddress(address); setSetupOpen(false); setTab("Wallet"); }}
+          onComplete={(address) => { setWalletAddress(address); setWalletUnlocked(true); setSetupOpen(false); setTab("Wallet"); }}
         />
       </SafeAreaView>
     );
@@ -95,8 +104,10 @@ export default function App() {
                 </View>
               </View>
 
+              {walletAddress && !walletUnlocked && <WalletUnlock onUnlocked={(address) => { setWalletAddress(address); setWalletUnlocked(true); }} />}
+
               <View style={styles.actions}>
-                <ActionTile icon="＋" label={walletAddress ? "Wallet ready" : "Create wallet"} onPress={() => setSetupOpen(true)} disabled={!!walletAddress} />
+                <ActionTile icon="＋" label={walletAddress ? (walletUnlocked ? "Wallet ready" : "Unlock") : "Create wallet"} onPress={() => walletAddress ? undefined : setSetupOpen(true)} disabled={!!walletAddress} />
                 <ActionTile icon="↗" label="Send" disabled />
                 <ActionTile icon="↙" label="Receive" disabled />
                 <ActionTile icon="⇄" label="Swap" disabled />
