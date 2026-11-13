@@ -34,8 +34,8 @@
 - [ ] Transaction simulation and recipient risk checks
 
 ## Phase 4 — TREX security intelligence
-- [ ] Calldata and typed-data decoding
-- [ ] Unlimited approval, Permit, and Permit2 warnings
+- [x] Offline calldata decoding for common ERC-20 approvals, EIP-2612 permits and Permit2 approvals
+- [x] Unlimited approval, Permit, and Permit2 warnings in the offline inspector
 - [ ] Address and token risk signals
 - [ ] Transaction simulation with clear limitations
 - [ ] Human-readable risk explanations
