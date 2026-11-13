@@ -16,7 +16,9 @@ const RPC: Record<number, string> = {
   56: "https://bsc-dataseed.binance.org",
   42161: "https://arb1.arbitrum.io/rpc",
   10: "https://mainnet.optimism.io",
-  137: "https://polygon-rpc.com"
+  137: "https://polygon-rpc.com",
+  11155111: "https://ethereum-sepolia-rpc.publicnode.com",
+  84532: "https://sepolia.base.org"
 };
 
 const RPC_OVERRIDE: Record<number, string | undefined> = {
@@ -25,7 +27,9 @@ const RPC_OVERRIDE: Record<number, string | undefined> = {
   56: process.env.EXPO_PUBLIC_BNB_RPC_URL,
   42161: process.env.EXPO_PUBLIC_ARBITRUM_RPC_URL,
   10: process.env.EXPO_PUBLIC_OPTIMISM_RPC_URL,
-  137: process.env.EXPO_PUBLIC_POLYGON_RPC_URL
+  137: process.env.EXPO_PUBLIC_POLYGON_RPC_URL,
+  11155111: process.env.EXPO_PUBLIC_SEPOLIA_RPC_URL,
+  84532: process.env.EXPO_PUBLIC_BASE_SEPOLIA_RPC_URL
 };
 
 export type NativeTransferPreview = {
