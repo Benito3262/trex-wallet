@@ -22,7 +22,7 @@
 - [x] Receive address and QR code
 - [x] Local transaction metadata history
 - [x] Add manual ERC-20 contract inspection and custom token balances
-- [ ] Add on-chain transaction receipt and confirmation status refresh
+- [x] Refresh submitted transaction status from on-chain receipts (included or failed)
 
 ## Phase 3 — Controlled signing
 - [x] Native transfer construction and gas estimation
