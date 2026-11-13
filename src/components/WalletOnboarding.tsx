@@ -10,7 +10,7 @@ import {
   View
 } from "react-native";
 import { createWalletIdentity, deriveWalletFromPhrase } from "../wallet/identity";
-import { saveWallet } from "../wallet/vault";
+import { getWalletAddress, saveWallet } from "../wallet/vault";
 import { theme } from "../theme";
 import { usePreventScreenCapture } from "expo-screen-capture";
 import * as LocalAuthentication from "expo-local-authentication";
@@ -91,12 +91,16 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" 
     void persistWallet(mnemonic, address, "m/44'/60'/0'/0/0");
   }
 
-  function importWallet() {
+  async function importWallet() {
     try {
       const derived = deriveWalletFromPhrase(mnemonic);
+      const existingAddress = await getWalletAddress();
+      if (existingAddress && existingAddress.toLowerCase() !== derived.address.toLowerCase()) {
+        throw new Error("This phrase derives a different address from the wallet already stored on this device. Check that you entered the original recovery phrase.");
+      }
       void persistWallet(mnemonic.trim().replace(/\s+/g, " "), derived.address, derived.derivationPath);
-    } catch {
-      setError("That recovery phrase is invalid. Check all words and their order.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That recovery phrase is invalid. Check all words and their order.");
     }
   }
 
