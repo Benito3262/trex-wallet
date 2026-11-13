@@ -44,15 +44,18 @@ export function analyzeEvmTransaction(data: string): TransactionAnalysis {
       const spender = String(parsed.args[0]);
       const amount = BigInt(parsed.args[1]);
       const unlimited = amount === MaxUint256;
-      warnings.push("This call grants a spender permission to move your tokens.");
+      const revoking = amount === 0n;
+      if (!revoking) warnings.push("This call grants a spender permission to move your tokens.");
       if (unlimited) warnings.push("The approval amount is the maximum uint256 value and is effectively unlimited.");
       return {
         method: "ERC-20 approve",
         selector,
-        riskLevel: unlimited ? "critical" : "high",
-        summary: unlimited
-          ? "This transaction grants effectively unlimited token spending permission."
-          : "This transaction grants token spending permission to a third-party address.",
+        riskLevel: revoking ? "info" : unlimited ? "critical" : "high",
+        summary: revoking
+          ? "This transaction sets the spender allowance to zero."
+          : unlimited
+            ? "This transaction grants effectively unlimited token spending permission."
+            : "This transaction grants token spending permission to a third-party address.",
         warnings,
         addresses: isAddress(spender) ? [spender] : [],
         amountRaw: amount.toString()
@@ -64,15 +67,18 @@ export function analyzeEvmTransaction(data: string): TransactionAnalysis {
       const spender = String(parsed.args[1]);
       const amount = BigInt(parsed.args[2]);
       const unlimited = amount === MaxUint256;
-      warnings.push("This call submits a signed permit that grants token spending permission.");
+      const revoking = amount === 0n;
+      if (!revoking) warnings.push("This call submits a signed permit that grants token spending permission.");
       if (unlimited) warnings.push("The permit amount is the maximum uint256 value and is effectively unlimited.");
       return {
         method: "ERC-20 permit",
         selector,
-        riskLevel: unlimited ? "critical" : "high",
-        summary: unlimited
-          ? "This permit grants effectively unlimited token spending permission."
-          : "This permit grants token spending permission to a third-party address.",
+        riskLevel: revoking ? "info" : unlimited ? "critical" : "high",
+        summary: revoking
+          ? "This permit sets the spender allowance to zero."
+          : unlimited
+            ? "This permit grants effectively unlimited token spending permission."
+            : "This permit grants token spending permission to a third-party address.",
         warnings,
         addresses: [owner, spender].filter(isAddress),
         amountRaw: amount.toString()
