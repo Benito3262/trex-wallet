@@ -99,7 +99,7 @@ export async function prepareNativeTransfer(
   from: string,
   recipient: string,
   amount: string
- ): Promise<NativeTransferPreview> {
+): Promise<NativeTransferPreview> {
   assertTestnetSendingEnabled(network);
   if (!isAddress(recipient)) throw new Error("Recipient address is not valid.");
   const to = recipient.trim();
@@ -142,7 +142,7 @@ export async function sendNativeTransfer(
   storedWallet: StoredWallet,
   recipient: string,
   amount: string
- ): Promise<string> {
+): Promise<string> {
   assertTestnetSendingEnabled(network);
   if (!isAddress(recipient)) throw new Error("Recipient address is not valid.");
   const value = parseAmount(amount);
