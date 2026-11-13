@@ -4,6 +4,7 @@ import { EvmNetwork } from "../config/networks";
 import { theme } from "../theme";
 import { loadWallet } from "../wallet/vault";
 import { NativeTransferPreview, prepareNativeTransfer, sendNativeTransfer } from "../wallet/transactions";
+import { recordTransaction } from "../wallet/history";
 
 export function SendNative({ address, network, onBack, onSent }: {
   address: string;
@@ -39,6 +40,22 @@ export function SendNative({ address, network, onBack, onSent }: {
       const wallet = await loadWallet();
       if (!wallet) throw new Error("Wallet not found. Restore it from your recovery phrase.");
       const txHash = await sendNativeTransfer(network, wallet, recipient, amount);
+      try {
+        await recordTransaction({
+          hash: txHash,
+          chainId: network.chainId,
+          networkName: network.name,
+          symbol: network.symbol,
+          amount: amount.trim(),
+          toAddress: recipient.trim(),
+          fromAddress: wallet.address,
+          createdAt: new Date().toISOString(),
+          status: "submitted"
+        });
+      } catch {
+        // The network submission succeeded; a local history write must not
+        // misreport the transaction as failed.
+      }
       setHash(txHash);
       onSent(txHash);
     } catch (e) {
