@@ -305,7 +305,8 @@ export default function App() {
                 ["01", "Native transfer preflight", "Check address syntax, chain ID, balance and estimated gas.", "TESTNET"],
                 ["02", "Encrypted local vault", "Recovery phrase protected by Android secure storage and biometrics.", "ACTIVE"],
                 ["03", "Recovery screen privacy", "Block screenshots and screen recording while words are visible.", "ACTIVE"],
-                ["04", "Contract risk engine", "Decode token approvals, Permit signatures and suspicious contract calls.", "PLANNED"]
+                ["04", "Contract risk engine", "Decode token approvals, Permit signatures and suspicious contract calls.", "PLANNED"],
+                ["05", "Calldata decoder", "Recognizes common ERC-20 approval and transfer calls. Not yet connected to signing.", "PROTOTYPE"]
               ].map(([number, title, description, status]) => (
                 <View key={number} style={styles.securityItem}>
                   <Text style={styles.securityNumber}>{number}</Text>
