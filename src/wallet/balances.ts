@@ -1,5 +1,5 @@
 import { formatEther, JsonRpcProvider } from "ethers";
-import { EvmNetwork } from "../config/networks";
+import type { EvmNetwork } from "../config/networks";
 
 const RPC_OVERRIDES: Record<number, string | undefined> = {
   1: process.env.EXPO_PUBLIC_ETHEREUM_RPC_URL,
