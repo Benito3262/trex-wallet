@@ -76,6 +76,24 @@ export default function App() {
   }, [walletAddress, network]);
 
   useEffect(() => {
+    if (!walletAddress) { setCustomTokens([]); return; }
+    let active = true;
+    getCustomTokens(network.chainId)
+      .then(async (saved) => {
+        const balances = await Promise.all(saved.map(async (token) => {
+          try {
+            return await inspectErc20Token(network, token.contractAddress, walletAddress);
+          } catch {
+            return { ...token, balance: "Unavailable" };
+          }
+        }));
+        if (active) setCustomTokens(balances);
+      })
+      .catch(() => { if (active) setCustomTokens([]); });
+    return () => { active = false; };
+  }, [walletAddress, network, tokenRefreshKey]);
+
+  useEffect(() => {
     let mounted = true;
     getWalletAddress().then((address) => { if (mounted && address) setWalletAddress(address); }).catch(() => undefined);
     return () => { mounted = false; };
