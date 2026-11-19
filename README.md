@@ -34,6 +34,10 @@ Public RPC endpoints are configured in the source as fallbacks. You can override
 
 WalletConnect reads the public Reown project ID from `EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID`. The APK workflow uses the repository variable of that name when it is set, and otherwise falls back to the project's public ID. Local builds without the variable still run: the WalletConnect screen says a project ID is needed.
 
+## Android permissions
+
+The release APK asks only for `CAMERA` (QR scanning; requested when you first scan), `USE_BIOMETRIC` / `USE_FINGERPRINT` (unlock and signing), `INTERNET` and `ACCESS_NETWORK_STATE` (RPC and WalletConnect connectivity). Expo and library defaults the app does not use (external storage, media images, overlay windows, vibration, Wi-Fi state, screenshot detection, microphone, Play install referrer) are removed with `android.blockedPermissions`. The manifest also contains AndroidX's internal, app-private `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`.
+
 ## Run locally
 
 Use Node.js 22.13 or newer and the Android toolchain required by React Native.
