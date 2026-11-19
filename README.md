@@ -36,7 +36,9 @@ WalletConnect reads the public Reown project ID from `EXPO_PUBLIC_WALLETCONNECT_
 
 ## Android permissions
 
-The release APK asks only for `CAMERA` (QR scanning; requested when you first scan), `USE_BIOMETRIC` / `USE_FINGERPRINT` (unlock and signing), `INTERNET` and `ACCESS_NETWORK_STATE` (RPC and WalletConnect connectivity). Expo and library defaults the app does not use (external storage, media images, overlay windows, vibration, Wi-Fi state, screenshot detection, microphone, Play install referrer) are removed with `android.blockedPermissions`. The manifest also contains AndroidX's internal, app-private `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`.
+The release APK asks only for `CAMERA` (QR scanning; requested when you first scan), `USE_BIOMETRIC` / `USE_FINGERPRINT` (unlock and signing), `INTERNET` and `ACCESS_NETWORK_STATE` (RPC and WalletConnect connectivity), and `DETECT_SCREEN_CAPTURE` (an install-time permission with no prompt; expo-screen-capture registers an Android 14+ screen-capture callback at startup and the app crashes on launch without it). Expo and library defaults the app does not use (external storage, media images, overlay windows, vibration, Wi-Fi state, microphone, Play install referrer) are removed with `android.blockedPermissions`.
+
+If TREX hits a JavaScript error it cannot recover from, it shows an error screen with the message instead of closing; please screenshot it when reporting a problem. Release builds currently ship without R8 minification to rule out stripped classes. The manifest also contains AndroidX's internal, app-private `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`.
 
 ## Run locally
 

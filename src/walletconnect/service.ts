@@ -68,6 +68,25 @@ function refreshSessions() {
   } catch { /* keep the previous list */ }
 }
 
+const USED_KEY = "trex.walletconnect.used.v1";
+
+/** True once this device has paired with WalletConnect (a public flag, no secrets). */
+export async function hasUsedWalletConnect(): Promise<boolean> {
+  try {
+    const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+    return (await AsyncStorage.getItem(USED_KEY)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+async function markWalletConnectUsed() {
+  try {
+    const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+    await AsyncStorage.setItem(USED_KEY, "1");
+  } catch { /* best effort */ }
+}
+
 /** Initializes WalletKit once. Safe to call repeatedly; failures are reported in state, not thrown to the UI. */
 export function initWalletConnect(): Promise<IWalletKit> {
   if (!WALLETCONNECT_PROJECT_ID) {
@@ -253,6 +272,7 @@ export async function pair(input: string): Promise<void> {
   }, 30000);
   try {
     await instance.pair({ uri });
+    void markWalletConnectUsed();
   } catch (error) {
     if (pairingTimer) { clearTimeout(pairingTimer); pairingTimer = null; }
     const message = error instanceof Error ? error.message : "Pairing failed.";

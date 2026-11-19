@@ -26,7 +26,6 @@
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.VIBRATE",
         "android.permission.ACCESS_WIFI_STATE",
-        "android.permission.DETECT_SCREEN_CAPTURE",
         "android.permission.RECORD_AUDIO",
         "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
       ]
@@ -66,7 +65,9 @@
         "expo-build-properties",
         {
           "android": {
-            "extraProguardRules": "# WalletConnect react-native-compat (Yttrium uniffi bindings over JNA)\n-dontwarn java.awt.**\n-keep class com.sun.jna.** { *; }\n-keepclassmembers class * extends com.sun.jna.** { public *; }\n-keep class uniffi.** { *; }\n-keep class com.walletconnect.** { *; }\n-keep class com.reown.** { *; }"
+            "extraProguardRules": "# WalletConnect react-native-compat (Yttrium uniffi bindings over JNA)\n-dontwarn java.awt.**\n-keep class com.sun.jna.** { *; }\n-keepclassmembers class * extends com.sun.jna.** { public *; }\n-keep class uniffi.** { *; }\n-keep class com.walletconnect.** { *; }\n-keep class com.reown.** { *; }",
+            "enableMinifyInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false
           }
         }
       ]

@@ -34,7 +34,7 @@ import { ConnectedSites } from "./src/components/ConnectedSites";
 import { approvalQueue } from "./src/dapp/approvalCenter";
 import { registerChainSwitcher, setWalletState } from "./src/dapp/walletState";
 import { WalletConnectScreen } from "./src/components/WalletConnectScreen";
-import { disconnectOriginSessions, initWalletConnect } from "./src/walletconnect/service";
+import { disconnectOriginSessions, hasUsedWalletConnect, initWalletConnect } from "./src/walletconnect/service";
 import { pairingUriFromDeepLink } from "./src/walletconnect/namespaces";
 import { appLock } from "./src/wallet/appLock";
 import { getNativeBalance } from "./src/wallet/balances";
@@ -133,9 +133,17 @@ function WalletApp() {
     setWalletState({ accountId: currentAccount?.id ?? null, address: walletAddress, network, unlocked: walletUnlocked && !!walletAddress });
   }, [currentAccount?.id, walletAddress, network, walletUnlocked]);
 
-  // Start WalletConnect after unlock so restored sessions can deliver requests. Errors stay inside the WC screen state.
+  // WalletConnect starts lazily: when the WalletConnect screen opens, or after unlock only if
+  // this device has paired before (so restored sessions can deliver requests). Deferred and
+  // fully caught so it can never block or crash startup.
   useEffect(() => {
-    if (walletUnlocked && walletAddress) initWalletConnect().catch(() => undefined);
+    if (!walletUnlocked || !walletAddress) return;
+    const timer = setTimeout(() => {
+      hasUsedWalletConnect()
+        .then((used) => (used ? initWalletConnect() : undefined))
+        .catch(() => undefined);
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [walletUnlocked, walletAddress]);
 
   // trexwallet://wc?uri=wc:... deep links open the WalletConnect screen with the link prefilled.
