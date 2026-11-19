@@ -1,3 +1,5 @@
+// WalletConnect polyfills (TextEncoder, crypto.getRandomValues, URL, Buffer) must load before anything else.
+import "@walletconnect/react-native-compat";
 import "react-native-get-random-values";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -31,6 +33,9 @@ import { OpenApprovals } from "./src/components/OpenApprovals";
 import { ConnectedSites } from "./src/components/ConnectedSites";
 import { approvalQueue } from "./src/dapp/approvalCenter";
 import { registerChainSwitcher, setWalletState } from "./src/dapp/walletState";
+import { WalletConnectScreen } from "./src/components/WalletConnectScreen";
+import { disconnectOriginSessions, initWalletConnect } from "./src/walletconnect/service";
+import { pairingUriFromDeepLink } from "./src/walletconnect/namespaces";
 import { getNativeBalance } from "./src/wallet/balances";
 import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
 import { fetchAddressActivity, fetchAddressTokenBalances, type ExplorerActivity } from "./src/wallet/explorerActivity";
@@ -110,6 +115,8 @@ function WalletApp() {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [approvalsOpen, setApprovalsOpen] = useState(false);
   const [sitesOpen, setSitesOpen] = useState(false);
+  const [wcOpen, setWcOpen] = useState(false);
+  const [wcUri, setWcUri] = useState<string | null>(null);
   const [registry, setRegistry] = useState<AccountRegistry | null>(null);
   const currentAccount = registry ? activeAccount(registry) : undefined;
   const screenMotion = useRef(new Animated.Value(1)).current;
@@ -124,6 +131,22 @@ function WalletApp() {
   useEffect(() => {
     setWalletState({ accountId: currentAccount?.id ?? null, address: walletAddress, network, unlocked: walletUnlocked && !!walletAddress });
   }, [currentAccount?.id, walletAddress, network, walletUnlocked]);
+
+  // Start WalletConnect after unlock so restored sessions can deliver requests. Errors stay inside the WC screen state.
+  useEffect(() => {
+    if (walletUnlocked && walletAddress) initWalletConnect().catch(() => undefined);
+  }, [walletUnlocked, walletAddress]);
+
+  // trexwallet://wc?uri=wc:... deep links open the WalletConnect screen with the link prefilled.
+  useEffect(() => {
+    const open = (url: string | null | undefined) => {
+      const uri = url ? pairingUriFromDeepLink(url) : null;
+      if (uri) { setWcUri(uri); setWcOpen(true); }
+    };
+    Linking.getInitialURL().then(open).catch(() => undefined);
+    const subscription = Linking.addEventListener("url", ({ url }) => open(url));
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => registerChainSwitcher((chainId) => {
     const index = NETWORKS.findIndex((item) => item.chainId === chainId);
@@ -264,11 +287,20 @@ function WalletApp() {
     );
   }
 
+  if (wcOpen && walletAddress) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <WalletConnectScreen initialUri={wcUri} onBack={() => { setWcOpen(false); setWcUri(null); }} />
+      </SafeAreaView>
+    );
+  }
+
   if (sitesOpen && walletAddress) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
-        <ConnectedSites address={walletAddress} onBack={() => setSitesOpen(false)} />
+        <ConnectedSites address={walletAddress} onBack={() => setSitesOpen(false)} onDisconnectWalletConnect={disconnectOriginSessions} />
       </SafeAreaView>
     );
   }
@@ -434,7 +466,7 @@ function WalletApp() {
                 <ActionTile icon="＋" label={walletAddress ? (walletUnlocked ? "Wallet ready" : "Unlock") : "Create wallet"} onPress={() => walletAddress ? undefined : setSetupOpen(true)} disabled={!!walletAddress} />
                 <ActionTile icon="↗" label={network.testnet ? "Send" : "Testnet only"} onPress={() => setSendOpen(true)} disabled={!walletAddress || !network.testnet} />
                 <ActionTile icon="↙" label="Receive" onPress={() => setReceiveOpen(true)} disabled={!walletAddress} />
-                <ActionTile icon="⇄" label="Swap" disabled />
+                <ActionTile icon="⇄" label="Connect" onPress={() => setWcOpen(true)} disabled={!walletAddress || !walletUnlocked} />
               </View>
 
               <View style={styles.sectionHeader}>
@@ -527,6 +559,10 @@ function WalletApp() {
                   <Text style={styles.securityItemText}>Review and disconnect dApps.</Text>
                 </Pressable>
               </View>
+              <Pressable style={[styles.securityLink, { marginBottom: 8 }]} onPress={() => setWcOpen(true)} disabled={!walletAddress}>
+                <Text style={styles.securityLinkTitle}>WalletConnect</Text>
+                <Text style={styles.securityItemText}>Pair with a dApp on another device by pasting its wc: link.</Text>
+              </Pressable>
               {[
                 ["01", "Native transfer preflight", "Check address syntax, chain ID, balance and estimated gas.", "TESTNET"],
                 ["02", "Encrypted local vault", "Recovery phrase protected by Android secure storage and biometrics.", "ACTIVE"],
