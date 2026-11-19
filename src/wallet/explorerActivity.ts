@@ -112,3 +112,63 @@ export async function fetchAddressActivity(network: EvmNetwork, address: string)
   }
   return [...unique.values()].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 100);
 }
+
+export type IndexedTokenBalance = {
+  chainId: number;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  balance: string;
+};
+
+const EXPLORER_TOKEN_BALANCE_API: Record<number, string> = EXPLORER_API;
+
+/**
+ * Discover non-zero ERC-20 balances for a public address using the network's
+ * Blockscout-compatible address index. This is read-only and never requests keys.
+ * Chains without a configured indexer return an empty list for manual fallback.
+ */
+export async function fetchAddressTokenBalances(
+  network: EvmNetwork,
+  address: string
+): Promise<IndexedTokenBalance[]> {
+  const base = EXPLORER_TOKEN_BALANCE_API[network.chainId];
+  if (!base) return [];
+  const response = await fetch(
+    `${base}/addresses/${encodeURIComponent(address)}/token-balances`,
+    { headers: { Accept: "application/json" } }
+  );
+  if (!response.ok) {
+    if (response.status === 404 || response.status === 501) return [];
+    throw new Error(`Token discovery unavailable (${response.status}).`);
+  }
+  const payload: any = await response.json();
+  const rows: any[] = Array.isArray(payload) ? payload : Array.isArray(payload?.items) ? payload.items : [];
+  const discovered: IndexedTokenBalance[] = [];
+  for (const row of rows) {
+    const token = row?.token ?? row;
+    const contractAddress = typeof token?.address === "string" ? token.address : "";
+    const symbol = typeof token?.symbol === "string" ? token.symbol.trim() : "";
+    const name = typeof token?.name === "string" ? token.name.trim() : symbol;
+    const decimals = Number(token?.decimals);
+    const rawValue = row?.value ?? row?.balance ?? row?.token?.value;
+    if (!/^0x[0-9a-f]{40}$/i.test(contractAddress)) continue;
+    if (!symbol || symbol.length > 16 || !Number.isInteger(decimals) || decimals < 0 || decimals > 36) continue;
+    try {
+      const amount = BigInt(String(rawValue ?? "0"));
+      if (amount <= 0n) continue;
+      discovered.push({
+        chainId: network.chainId,
+        contractAddress,
+        name: (name || symbol).slice(0, 80),
+        symbol,
+        decimals,
+        balance: formatUnits(amount, decimals)
+      });
+    } catch {
+      // Ignore malformed indexer rows rather than displaying fabricated balances.
+    }
+  }
+  return discovered;
+}
