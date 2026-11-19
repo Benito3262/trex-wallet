@@ -1,9 +1,10 @@
 import "react-native-get-random-values";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
   ActivityIndicator,
+  Animated,
   Linking,
   Modal,
   Alert,
@@ -80,7 +81,13 @@ export default function App() {
   const [selectedToken, setSelectedToken] = useState<TokenMetadata | null>(null);
   const [networkPickerOpen, setNetworkPickerOpen] = useState(false);
   const [walletManagerOpen, setWalletManagerOpen] = useState(false);
+  const screenMotion = useRef(new Animated.Value(1)).current;
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
+
+  useEffect(() => {
+    screenMotion.setValue(0);
+    Animated.timing(screenMotion, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+  }, [tab, screenMotion]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
@@ -278,6 +285,7 @@ export default function App() {
           </View>
         </View>
 
+        <Animated.View style={{ flex: 1, opacity: screenMotion, transform: [{ translateY: screenMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {tab === "Wallet" && (
             <>
@@ -409,6 +417,7 @@ export default function App() {
             </View>
           )}
         </ScrollView>
+        </Animated.View>
 
         <View style={styles.bottomNav}>
           {(["Wallet", "Activity", "Security", "Browser"] as Tab[]).map((item) => (
