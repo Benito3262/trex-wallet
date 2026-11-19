@@ -59,7 +59,7 @@ export async function fetchAddressActivity(network: EvmNetwork, address: string)
     getItems(`${root}/token-transfers?type=ERC-20`)
   ]);
 
-  const native: ExplorerActivity[] = nativeItems.map((item: any) => {
+  const native: ExplorerActivity[] = nativeItems.map((item: any): ExplorerActivity => {
     const fromAddress = asAddress(item.from);
     const toAddress = asAddress(item.to);
     const direction: "received" | "sent" = toAddress.toLowerCase() === normalized ? "received" : "sent";
@@ -81,7 +81,7 @@ export async function fetchAddressActivity(network: EvmNetwork, address: string)
     };
   }).filter((item) => /^0x[0-9a-f]{64}$/i.test(item.hash));
 
-  const tokens: ExplorerActivity[] = tokenItems.map((item: any) => {
+  const tokens: ExplorerActivity[] = tokenItems.map((item: any): ExplorerActivity => {
     const fromAddress = asAddress(item.from);
     const toAddress = asAddress(item.to);
     const direction: "received" | "sent" = toAddress.toLowerCase() === normalized ? "received" : "sent";
