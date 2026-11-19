@@ -25,6 +25,12 @@ import { loadRegistry, setActiveAccount, subscribeRegistry } from "./src/wallet/
 import { activeAccount, type AccountRegistry } from "./src/wallet/accounts";
 import { BrandLogo, Wordmark } from "./src/components/brand";
 import { BottomSheet, FadeIn } from "./src/components/motion";
+import { ErrorBoundary } from "./src/components/ErrorBoundary";
+import { RequestHost } from "./src/components/RequestHost";
+import { OpenApprovals } from "./src/components/OpenApprovals";
+import { ConnectedSites } from "./src/components/ConnectedSites";
+import { approvalQueue } from "./src/dapp/approvalCenter";
+import { registerChainSwitcher, setWalletState } from "./src/dapp/walletState";
 import { getNativeBalance } from "./src/wallet/balances";
 import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
 import { fetchAddressActivity, fetchAddressTokenBalances, type ExplorerActivity } from "./src/wallet/explorerActivity";
@@ -65,6 +71,17 @@ function ActionTile({ icon, label, onPress, disabled = false }: {
 }
 
 export default function App() {
+  return (
+    <ErrorBoundary label="TREX Wallet" onError={() => approvalQueue.cancelAll()}>
+      <WalletApp />
+      <ErrorBoundary label="Request review" onError={() => approvalQueue.cancelAll()}>
+        <RequestHost />
+      </ErrorBoundary>
+    </ErrorBoundary>
+  );
+}
+
+function WalletApp() {
   const [networkIndex, setNetworkIndex] = useState(
     NETWORKS.findIndex((network) => network.chainId === DEFAULT_NETWORK.chainId)
   );
@@ -91,6 +108,8 @@ export default function App() {
   const [walletManagerOpen, setWalletManagerOpen] = useState(false);
   const [addWalletOpen, setAddWalletOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [approvalsOpen, setApprovalsOpen] = useState(false);
+  const [sitesOpen, setSitesOpen] = useState(false);
   const [registry, setRegistry] = useState<AccountRegistry | null>(null);
   const currentAccount = registry ? activeAccount(registry) : undefined;
   const screenMotion = useRef(new Animated.Value(1)).current;
@@ -101,9 +120,24 @@ export default function App() {
     Animated.timing(screenMotion, { toValue: 1, duration: 260, useNativeDriver: true }).start();
   }, [tab, screenMotion]);
 
+  // Keep dApp sessions (browser + WalletConnect) in sync with the active account and network.
+  useEffect(() => {
+    setWalletState({ accountId: currentAccount?.id ?? null, address: walletAddress, network, unlocked: walletUnlocked && !!walletAddress });
+  }, [currentAccount?.id, walletAddress, network, walletUnlocked]);
+
+  useEffect(() => registerChainSwitcher((chainId) => {
+    const index = NETWORKS.findIndex((item) => item.chainId === chainId);
+    if (index < 0) throw new Error("Unsupported network.");
+    setNetworkIndex(index);
+  }), []);
+
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state !== "active") setWalletUnlocked(false);
+      if (state !== "active") {
+        setWalletUnlocked(false);
+        // Locking must also cancel anything waiting for approval.
+        approvalQueue.cancelAll();
+      }
     });
     return () => subscription.remove();
   }, []);
@@ -217,6 +251,24 @@ export default function App() {
             if (!address) { setWalletManagerOpen(false); setWalletUnlocked(false); setTab("Wallet"); }
           }}
         />
+      </SafeAreaView>
+    );
+  }
+
+  if (approvalsOpen && walletAddress) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <OpenApprovals address={walletAddress} network={network} onBack={() => setApprovalsOpen(false)} />
+      </SafeAreaView>
+    );
+  }
+
+  if (sitesOpen && walletAddress) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <ConnectedSites address={walletAddress} onBack={() => setSitesOpen(false)} />
       </SafeAreaView>
     );
   }
@@ -464,13 +516,25 @@ export default function App() {
           {tab === "Security" && (
             <View style={styles.securityPage}>
               <Text style={styles.sectionTitle}>TREX protection</Text>
-              <Text style={styles.securityIntro}>The offline inspector decodes selected approval and permit calls. It is not yet connected to wallet signing, and it cannot simulate contract execution or guarantee safety.</Text>
+              <Text style={styles.securityIntro}>Every site request opens a review sheet with decoded calldata, a best-effort simulation and risk checks, then asks for biometrics. Checks can miss things; they are not a guarantee.</Text>
+              <View style={styles.securityLinks}>
+                <Pressable style={styles.securityLink} onPress={() => setApprovalsOpen(true)} disabled={!walletAddress}>
+                  <Text style={styles.securityLinkTitle}>Open approvals</Text>
+                  <Text style={styles.securityItemText}>See and revoke allowances granted through TREX.</Text>
+                </Pressable>
+                <Pressable style={styles.securityLink} onPress={() => setSitesOpen(true)} disabled={!walletAddress}>
+                  <Text style={styles.securityLinkTitle}>Connected sites</Text>
+                  <Text style={styles.securityItemText}>Review and disconnect dApps.</Text>
+                </Pressable>
+              </View>
               {[
                 ["01", "Native transfer preflight", "Check address syntax, chain ID, balance and estimated gas.", "TESTNET"],
                 ["02", "Encrypted local vault", "Recovery phrase protected by Android secure storage and biometrics.", "ACTIVE"],
                 ["03", "Recovery screen privacy", "Block screenshots and screen recording while words are visible.", "ACTIVE"],
-                ["04", "Contract risk engine", "Offline decoder covers ERC-20 approvals, EIP-2612 permits and Permit2 allowances. Signing integration and broader risk checks remain planned.", "PLANNED"],
-                ["05", "Calldata decoder", "Interactive offline inspector for ERC-20 approvals, EIP-2612 permits, Permit2 and transfers. Not connected to signing.", "PROTOTYPE"]
+                ["04", "Request review", "Decodes approvals, setApprovalForAll and Permit/Permit2 signatures, simulates with eth_call, checks balance plus fee, contract vs EOA, first interactions and chain mismatches.", "TESTNET"],
+                ["05", "Self-cleaning approvals", "Offers an exact amount instead of unlimited approvals, tracks what you granted and lets you revoke in one tap.", "TESTNET"],
+                ["06", "Mainnet signing", "Disabled in this early test build. Mainnet is read-only and connect-only.", "LOCKED"],
+                ["07", "Calldata decoder", "Paste calldata below to inspect it offline.", "ACTIVE"]
               ].map(([number, title, description, status]) => (
                 <View key={number} style={styles.securityItem}>
                   <Text style={styles.securityNumber}>{number}</Text>
@@ -495,7 +559,7 @@ export default function App() {
             </Pressable>
           ))}
         </View>
-        <Text style={styles.disclaimer}>EARLY PREVIEW · DO NOT USE WITH REAL FUNDS</Text>
+        <Text style={styles.disclaimer}>EARLY TEST BUILD · NOT AUDITED · TESTNET FUNDS ONLY</Text>
       </View>
     </SafeAreaView>
   );
@@ -571,6 +635,9 @@ const styles = StyleSheet.create({
   tabEmptyIcon: { color: theme.colors.primaryBright, fontSize: 40, marginBottom: 14 },
   securityPage: { paddingTop: 12 },
   securityIntro: { color: theme.colors.muted, fontSize: 12, lineHeight: 19, marginTop: 8, marginBottom: 20 },
+  securityLinks: { flexDirection: "row", gap: 10, marginBottom: 6 },
+  securityLink: { flex: 1, backgroundColor: theme.colors.surface, borderColor: theme.colors.primary, borderWidth: 1, borderRadius: 16, padding: 13 },
+  securityLinkTitle: { color: theme.colors.primaryBright, fontSize: 12, fontWeight: "900" },
   securityItem: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 17, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   securityNumber: { color: theme.colors.primaryBright, fontSize: 12, fontWeight: "900" },
   securityItemCopy: { flex: 1 },

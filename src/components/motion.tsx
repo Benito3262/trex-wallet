@@ -36,11 +36,12 @@ export function FadeIn({ children, delay = 0, trigger, style }: { children: Reac
 }
 
 /** Pressable with the same spring press feedback as the wallet action tiles. */
-export function SpringPressable({ children, style, disabled, onPressIn, onPressOut, ...rest }: PressableProps & { style?: StyleProp<ViewStyle>; children: ReactNode }) {
+export function SpringPressable({ children, style, containerStyle, disabled, onPressIn, onPressOut, ...rest }: PressableProps & { style?: StyleProp<ViewStyle>; containerStyle?: StyleProp<ViewStyle>; children: ReactNode }) {
   const scale = useRef(new Animated.Value(1)).current;
   return (
     <Pressable
       {...rest}
+      style={containerStyle}
       disabled={disabled}
       onPressIn={(event) => { if (!disabled) Animated.spring(scale, { ...motion.pressIn, useNativeDriver: true }).start(); onPressIn?.(event); }}
       onPressOut={(event) => { Animated.spring(scale, { ...motion.pressOut, useNativeDriver: true }).start(); onPressOut?.(event); }}
