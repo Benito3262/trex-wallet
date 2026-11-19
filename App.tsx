@@ -21,6 +21,7 @@ import { WalletUnlock } from "./src/components/WalletUnlock";
 import { getWalletAddress } from "./src/wallet/vault";
 import { getNativeBalance } from "./src/wallet/balances";
 import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
+import { fetchAddressActivity, type ExplorerActivity } from "./src/wallet/explorerActivity";
 import { ReceiveAddress } from "./src/components/ReceiveAddress";
 import { SendNative } from "./src/components/SendNative";
 import { AddToken } from "./src/components/AddToken";
@@ -67,6 +68,9 @@ export default function App() {
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [chainActivity, setChainActivity] = useState<ExplorerActivity[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState("");
   const [sendOpen, setSendOpen] = useState(false);
   const [addTokenOpen, setAddTokenOpen] = useState(false);
   const [tokenRefreshKey, setTokenRefreshKey] = useState(0);
@@ -114,11 +118,19 @@ export default function App() {
   useEffect(() => {
     if (tab !== "Activity" || !walletAddress) return;
     let active = true;
-    refreshRecentTransactions(walletAddress)
-      .then((items) => { if (active) setTransactions(items); })
-      .catch(() => undefined);
+    setActivityLoading(true);
+    setActivityError("");
+    Promise.all([
+      refreshRecentTransactions(walletAddress).then((items) => { if (active) setTransactions(items); }).catch(() => undefined),
+      fetchAddressActivity(network, walletAddress).then((items) => { if (active) setChainActivity(items); }).catch((error) => {
+        if (active) {
+          setChainActivity([]);
+          setActivityError(error instanceof Error ? error.message : "Could not load indexed activity.");
+        }
+      })
+    ]).finally(() => { if (active) setActivityLoading(false); });
     return () => { active = false; };
-  }, [tab, walletAddress]);
+  }, [tab, walletAddress, network]);
 
   useEffect(() => {
     let mounted = true;
@@ -310,22 +322,38 @@ export default function App() {
           {tab === "Activity" && (
             <View style={styles.securityPage}>
               <Text style={styles.sectionTitle}>Transaction activity</Text>
-              <Text style={styles.securityIntro}>Locally recorded transactions submitted from this device. A submitted transaction is not necessarily confirmed.</Text>
-              {transactions.length === 0 ? (
+              <Text style={styles.securityIntro}>On-chain activity for {walletAddress ? `${walletAddress.slice(0, 8)}…${walletAddress.slice(-6)}` : "this wallet"} on {network.name}. Incoming and outgoing native transfers and ERC-20 transfers are loaded from the chain explorer.</Text>
+              {activityLoading && <View style={styles.activityLoading}><ActivityIndicator color={theme.colors.primaryBright} /><Text style={styles.activityLoadingText}>Syncing on-chain activity…</Text></View>}
+              {!!activityError && <View style={styles.activityNotice}><Text style={styles.activityNoticeText}>{activityError} Your locally submitted transactions are still available below.</Text></View>}
+              {!activityLoading && chainActivity.length === 0 && transactions.length === 0 ? (
                 <View style={styles.emptyCard}>
-                  <Text style={styles.emptyTitle}>No transactions yet</Text>
-                  <Text style={styles.emptyText}>Your submitted transfers will appear here.</Text>
+                  <Text style={styles.emptyTitle}>No indexed activity found</Text>
+                  <Text style={styles.emptyText}>{activityError || "Received and sent transfers will appear here when the explorer indexes them."}</Text>
                 </View>
-              ) : transactions.map((tx) => (
-                <View key={tx.hash} style={styles.transactionRow}>
-                  <View style={styles.transactionIcon}><Text style={styles.transactionIconText}>↗</Text></View>
-                  <View style={styles.transactionCopy}>
-                    <Text style={styles.transactionTitle}>Sent {tx.amount} {tx.symbol}</Text>
-                    <Text style={styles.transactionMeta}>{tx.networkName} · {tx.status === "included" ? "Included in block" : tx.status === "failed" ? "Failed" : "Submitted"}</Text>
-                    <Pressable onPress={() => { const chain = NETWORKS.find((item) => item.chainId === tx.chainId); if (chain) Linking.openURL(`${chain.explorer}/tx/${tx.hash}`).catch(() => undefined); }}><Text selectable style={styles.transactionHash}>{tx.hash.slice(0, 12)}...{tx.hash.slice(-8)} · VIEW</Text></Pressable>
-                  </View>
-                </View>
-              ))}
+              ) : (
+                <>
+                  {chainActivity.map((tx, index) => (
+                    <View key={`${tx.hash}:${tx.kind}:${tx.tokenAddress ?? index}`} style={styles.transactionRow}>
+                      <View style={[styles.transactionIcon, tx.direction === "received" && styles.receivedIcon]}><Text style={styles.transactionIconText}>{tx.direction === "received" ? "↙" : "↗"}</Text></View>
+                      <View style={styles.transactionCopy}>
+                        <Text style={styles.transactionTitle}>{tx.direction === "received" ? "Received" : "Sent"} {tx.amount} {tx.symbol}</Text>
+                        <Text style={styles.transactionMeta}>{tx.kind === "token" ? "Token transfer" : "Native transfer"} · {tx.status === "failed" ? "Failed" : "Confirmed"} · {new Date(tx.timestamp).toLocaleString()}</Text>
+                        <Pressable onPress={() => Linking.openURL(`${network.explorer}/tx/${tx.hash}`).catch(() => undefined)}><Text selectable style={styles.transactionHash}>{tx.hash.slice(0, 12)}…{tx.hash.slice(-8)} · VIEW</Text></Pressable>
+                      </View>
+                    </View>
+                  ))}
+                  {transactions.filter((tx) => !chainActivity.some((item) => item.hash.toLowerCase() === tx.hash.toLowerCase())).map((tx) => (
+                    <View key={tx.hash} style={styles.transactionRow}>
+                      <View style={styles.transactionIcon}><Text style={styles.transactionIconText}>↗</Text></View>
+                      <View style={styles.transactionCopy}>
+                        <Text style={styles.transactionTitle}>Sent {tx.amount} {tx.symbol}</Text>
+                        <Text style={styles.transactionMeta}>{tx.networkName} · {tx.status === "included" ? "Included in block" : tx.status === "failed" ? "Failed" : "Submitted"}</Text>
+                        <Pressable onPress={() => { const chain = NETWORKS.find((item) => item.chainId === tx.chainId); if (chain) Linking.openURL(`${chain.explorer}/tx/${tx.hash}`).catch(() => undefined); }}><Text selectable style={styles.transactionHash}>{tx.hash.slice(0, 12)}…{tx.hash.slice(-8)} · VIEW</Text></Pressable>
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
             </View>
           )}
 
@@ -455,6 +483,11 @@ const styles = StyleSheet.create({
   transactionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   transactionIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#2A1C3D", alignItems: "center", justifyContent: "center" },
   transactionIconText: { color: theme.colors.primaryBright, fontSize: 17 },
+  receivedIcon: { backgroundColor: "#17372F", borderColor: "#286B56", borderWidth: 1 },
+  activityLoading: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 18 },
+  activityLoadingText: { color: theme.colors.muted, fontSize: 11 },
+  activityNotice: { backgroundColor: "#2B2115", borderColor: "#6A4B24", borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 },
+  activityNoticeText: { color: theme.colors.warning, fontSize: 10, lineHeight: 16 },
   transactionCopy: { flex: 1 },
   transactionTitle: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
   transactionMeta: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },
