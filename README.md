@@ -11,14 +11,15 @@ TREX Wallet is a personal, non-custodial EVM wallet for Android. Its design prio
 - Android app on Expo SDK 58, React Native 0.88 and TypeScript, with the TREX espresso/amber branding (official logo for the icon, adaptive icon, splash, onboarding, unlock and header).
 - **Multiple wallets:** create or restore a recovery phrase, import a private key, derive more HD accounts (`m/44'/60'/0'/0/i`), switch, rename and remove accounts (with confirmation). Every secret sits in its own biometric-gated SecureStore entry. Single-wallet installs from earlier builds are migrated in place; the old secret is never rewritten.
 - **In-app dApp browser:** an injected EIP-1193 provider that announces itself through EIP-6963. It supports `eth_requestAccounts`, `eth_accounts`, `eth_chainId`, `wallet_switchEthereumChain`, `personal_sign`, `eth_signTypedData_v4` and `eth_sendTransaction`, and emits `accountsChanged`/`chainChanged`. Sites must ask before they connect, and only HTTPS (or localhost) origins can reach the wallet. A Connected sites screen lets you disconnect them. `eth_sign` and other raw signing methods are refused.
-- **WalletConnect v2** through Reown WalletKit: paste a `wc:` link or open a `trexwallet://wc?uri=` deep link, approve the session, then manage or disconnect sessions. QR scanning is not built yet.
+- **WalletConnect v2** through Reown WalletKit: scan the dApp's QR, paste a `wc:` link or open a `trexwallet://wc?uri=` deep link, approve the session, then manage or disconnect sessions. Reviews close themselves (with a notice) when a request expires, its lifetime runs out (default 5 minutes) or the session is disconnected or expires, and TREX re-checks that the request is still live after biometrics, before signing.
+- **QR scanning** (expo-camera, QR codes only, no microphone): recipient addresses (plain or EIP-681 `ethereum:` links, checksum-validated, with chain/token mismatch warnings), token contracts and WalletConnect codes. If camera access is denied, the scanner explains and offers Android settings; pasting still works.
 - **Review sheets for every request.** Each signature or transaction opens a review and needs biometrics, so a page can never sign without you. Reviews include:
   - an `eth_call` simulation, a gas estimate and a balance-plus-fee check;
   - contract vs. EOA detection and first-interaction detection;
   - chain-mismatch blocking;
   - decoding of unlimited ERC-20 approvals, `setApprovalForAll`, EIP-2612/DAI Permit and Permit2 (spender, amount, expiry), plus SIWE domain checks.
 - **Self-cleaning approvals:** an unlimited approval can be swapped for an exact amount before you sign. An Open approvals screen reads live allowances for approvals made through TREX and revokes them with one tap, through the same review.
-- Native and ERC-20 transfers on testnets, receive QR, and local SQLite history that holds public metadata only.
+- Native and ERC-20 transfers on testnets with a slide-up review sheet, receive QR, and local SQLite history that holds public metadata only.
 - Jest tests for HD derivation and account storage logic, migration, provider routing, the injected script, approval rewriting, Permit/Permit2 decoding, review rules and WalletConnect URIs and namespaces.
 
 ## Networks
@@ -67,6 +68,7 @@ Every qualifying push to `main` triggers the GitHub Actions workflow **TREX Wall
   - "Simulation unavailable" means the check did not run. It does not mean the request is safe.
 - Open approvals only lists approvals made through TREX. It is not a full on-chain allowance scan.
 - The app has **not been tested on a physical device yet**. CI checks types, unit tests and that the APK builds, but the WebView provider, WalletConnect pairing, biometrics and migration need hands-on testing.
-- WalletConnect one-click auth (`session_authenticate`) is rejected, so dApps fall back to a normal session. QR scanning, swaps and bridging are not implemented.
+- WalletConnect one-click auth (`session_authenticate`) is rejected, so dApps fall back to a normal session. Swaps and bridging are not implemented.
+- The camera permission dialog briefly backgrounds the app on Android. TREX gives TREX-opened permission dialogs and the settings screen a one-shot 30-second grace before locking; any other trip out of the app locks immediately.
 
 See [SECURITY.md](SECURITY.md) and [ROADMAP.md](ROADMAP.md).

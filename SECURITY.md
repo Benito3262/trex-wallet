@@ -35,7 +35,8 @@ TREX Wallet is an early-stage, non-custodial Android wallet. The current test bu
 - Contract calls from dApps are decoded only for common approval and permit patterns; other calldata is shown raw. Simulation is best-effort and may be unavailable.
 - Native and ERC-20 transfer preflight is not a scam detector. It cannot prove that a recipient belongs to the intended person or that a token is legitimate.
 - A transaction marked submitted is not necessarily confirmed or successful.
-- Open approvals tracks only approvals made through TREX. There is no threat-intelligence feed, no swaps or bridging, and no WalletConnect QR scanning.
+- Open approvals tracks only approvals made through TREX. There is no threat-intelligence feed and no swaps or bridging.
+- A scanned QR only fills in an address; it never sets an amount or signs anything. Scanned addresses are checksum-validated, but a QR can still point to the wrong person.
 - None of the browser, WalletConnect, biometric or migration flows has been tested on a physical device yet.
 
 ## Required security work before real funds

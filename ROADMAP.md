@@ -54,7 +54,9 @@
 - [x] In-app browser with EIP-1193 provider and EIP-6963 announcement
 - [x] Per-site connect approval, connected-sites list, accountsChanged/chainChanged
 - [x] WalletConnect v2 (Reown WalletKit) pairing by pasted link or deep link
-- [ ] WalletConnect QR scanning
+- [x] WalletConnect QR scanning (expo-camera)
+- [x] Auto-close reviews on WalletConnect request expiry, timeout, disconnect and session expiry
+- [x] QR scanning for recipient addresses (EIP-681) and token contracts
 - [ ] On-device testing of browser and WalletConnect flows against real dApps
 
 Swaps, bridging, and AI assistance are later features. Any AI assistant remains read-only and must never receive keys or signing authority.
