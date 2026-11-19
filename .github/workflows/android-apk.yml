@@ -14,9 +14,9 @@ on:
       - ".github/workflows/android-apk.yml"
 
 jobs:
-  build-debug-apk:
+  build-standalone-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +29,13 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Install image conversion tools
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - name: Generate launcher icon PNGs
+        run: |
+          mkdir -p assets
+          convert -background none assets/icon.svg -resize 1024x1024 assets/icon.png
+          convert -background none assets/icon.svg -resize 1024x1024 -gravity center -extent 1024x1024 assets/adaptive-icon.png
       - name: Install JavaScript dependencies
         run: npm install
       - name: Validate dependencies
@@ -41,13 +48,18 @@ jobs:
         run: npx expo config --type public
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install --non-interactive
-      - name: Build installable debug APK
+      - name: Build standalone release APK with embedded JS bundle
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
-      - name: Upload APK
+        run: ./gradlew assembleRelease --no-daemon
+      - name: Verify APK contains packaged JavaScript bundle
+        run: |
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          unzip -l "$APK" | grep -E 'assets/index.android.bundle|assets/.*\.bundle'
+      - name: Upload standalone APK
         uses: actions/upload-artifact@v4
         with:
-          name: trex-wallet-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: trex-wallet-standalone-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
