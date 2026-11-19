@@ -19,6 +19,7 @@ import { theme } from "./src/theme";
 import { WalletOnboarding } from "./src/components/WalletOnboarding";
 import { WalletUnlock } from "./src/components/WalletUnlock";
 import { WalletManager } from "./src/components/WalletManager";
+import { DappBrowser } from "./src/components/DappBrowser";
 import { getWalletAddress } from "./src/wallet/vault";
 import { getNativeBalance } from "./src/wallet/balances";
 import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
@@ -32,7 +33,7 @@ import { getCustomTokens, removeCustomToken } from "./src/wallet/tokenStore";
 import { inspectErc20Token } from "./src/wallet/tokens";
 import type { TokenBalance, TokenMetadata } from "./src/wallet/tokens";
 
-type Tab = "Wallet" | "Activity" | "Security";
+type Tab = "Wallet" | "Activity" | "Security" | "Browser";
 
 function ActionTile({ icon, label, onPress, disabled = false }: {
   icon: string;
@@ -167,6 +168,15 @@ export default function App() {
           onUnlocked={(address) => { setWalletAddress(address); setWalletUnlocked(true); }}
           onRestore={() => { setRestoreMode(true); setSetupOpen(true); }}
         />
+      </SafeAreaView>
+    );
+  }
+
+  if (tab === "Browser" && walletAddress && walletUnlocked) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <DappBrowser onClose={() => setTab("Wallet")} />
       </SafeAreaView>
     );
   }
@@ -401,9 +411,9 @@ export default function App() {
         </ScrollView>
 
         <View style={styles.bottomNav}>
-          {(["Wallet", "Activity", "Security"] as Tab[]).map((item) => (
+          {(["Wallet", "Activity", "Security", "Browser"] as Tab[]).map((item) => (
             <Pressable key={item} style={styles.navItem} onPress={() => setTab(item)}>
-              <Text style={[styles.navIcon, tab === item && styles.navActive]}>{item === "Wallet" ? "◇" : item === "Activity" ? "↻" : "⬡"}</Text>
+              <Text style={[styles.navIcon, tab === item && styles.navActive]}>{item === "Wallet" ? "◇" : item === "Activity" ? "↻" : item === "Security" ? "⬡" : "◎"}</Text>
               <Text style={[styles.navLabel, tab === item && styles.navActive]}>{item}</Text>
             </Pressable>
           ))}
