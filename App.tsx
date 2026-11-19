@@ -266,7 +266,7 @@ export default function App() {
               <Pressable key={item.chainId} style={[styles.networkOption, item.chainId === network.chainId && styles.networkOptionActive]} onPress={() => { setNetworkIndex(index); setNetworkPickerOpen(false); }}>
                 <View style={styles.networkOptionCopy}>
                   <Text style={styles.networkOptionName}>{item.name}</Text>
-                  <Text style={styles.networkOptionMeta}>Chain {item.chainId} · {item.chainId === 11155111 || item.chainId === 84532 ? "TESTNET" : "MAINNET"}</Text>
+                  <Text style={styles.networkOptionMeta}>Chain {item.chainId} · {item.testnet ? "TESTNET · SIGNING ON" : "MAINNET · READ ONLY"}</Text>
                 </View>
                 {item.chainId === network.chainId && <Text style={styles.networkSelected}>SELECTED</Text>}
               </Pressable>
@@ -317,7 +317,7 @@ export default function App() {
 
               <View style={styles.actions}>
                 <ActionTile icon="＋" label={walletAddress ? (walletUnlocked ? "Wallet ready" : "Unlock") : "Create wallet"} onPress={() => walletAddress ? undefined : setSetupOpen(true)} disabled={!!walletAddress} />
-                <ActionTile icon="↗" label={network.chainId === 11155111 || network.chainId === 84532 ? "Send" : "Testnet only"} onPress={() => setSendOpen(true)} disabled={!walletAddress || (network.chainId !== 11155111 && network.chainId !== 84532)} />
+                <ActionTile icon="↗" label={network.testnet ? "Send" : "Testnet only"} onPress={() => setSendOpen(true)} disabled={!walletAddress || !network.testnet} />
                 <ActionTile icon="↙" label="Receive" onPress={() => setReceiveOpen(true)} disabled={!walletAddress} />
                 <ActionTile icon="⇄" label="Swap" disabled />
               </View>
@@ -336,7 +336,7 @@ export default function App() {
                 </View>
               ) : customTokens.map((token) => (
                 <View key={token.contractAddress} style={styles.tokenRow}>
-                  <Pressable style={styles.tokenRowBody} disabled={network.chainId !== 11155111 && network.chainId !== 84532} onPress={() => setSelectedToken(token)}>
+                  <Pressable style={styles.tokenRowBody} disabled={!network.testnet} onPress={() => setSelectedToken(token)}>
                     <View style={styles.tokenSymbolBubble}><Text style={styles.tokenSymbolText}>{token.symbol.slice(0, 3).toUpperCase()}</Text></View>
                     <View style={styles.tokenDetails}>
                       <Text style={styles.tokenNameText}>{token.name}</Text>

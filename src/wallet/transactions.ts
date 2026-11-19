@@ -7,38 +7,12 @@ import {
   isAddress,
   type FeeData
 } from "ethers";
-import type { EvmNetwork } from "../config/networks";
+import { assertSigningAllowed, rpcUrlFor, type EvmNetwork } from "../config/networks";
 import type { StoredWallet } from "./vault";
 
-const TESTNET_SEND_CHAINS = new Set([11155111, 84532]);
-
 function assertTestnetSendingEnabled(network: EvmNetwork) {
-  if (!TESTNET_SEND_CHAINS.has(network.chainId)) {
-    throw new Error("Mainnet transfers are disabled in this development build. Switch to Ethereum Sepolia or Base Sepolia.");
-  }
+  assertSigningAllowed(network.chainId);
 }
-
-const RPC: Record<number, string> = {
-  1: "https://cloudflare-eth.com",
-  8453: "https://mainnet.base.org",
-  56: "https://bsc-dataseed.binance.org",
-  42161: "https://arb1.arbitrum.io/rpc",
-  10: "https://mainnet.optimism.io",
-  137: "https://polygon-rpc.com",
-  11155111: "https://ethereum-sepolia-rpc.publicnode.com",
-  84532: "https://sepolia.base.org"
-};
-
-const RPC_OVERRIDE: Record<number, string | undefined> = {
-  1: process.env.EXPO_PUBLIC_ETHEREUM_RPC_URL,
-  8453: process.env.EXPO_PUBLIC_BASE_RPC_URL,
-  56: process.env.EXPO_PUBLIC_BNB_RPC_URL,
-  42161: process.env.EXPO_PUBLIC_ARBITRUM_RPC_URL,
-  10: process.env.EXPO_PUBLIC_OPTIMISM_RPC_URL,
-  137: process.env.EXPO_PUBLIC_POLYGON_RPC_URL,
-  11155111: process.env.EXPO_PUBLIC_SEPOLIA_RPC_URL,
-  84532: process.env.EXPO_PUBLIC_BASE_SEPOLIA_RPC_URL
-};
 
 export type NativeTransferPreview = {
   chainId: number;
@@ -54,8 +28,7 @@ export type NativeTransferPreview = {
 };
 
 function providerFor(network: EvmNetwork) {
-  const url = RPC_OVERRIDE[network.chainId] || RPC[network.chainId];
-  if (!url) throw new Error("No RPC endpoint is configured for this network.");
+  const url = rpcUrlFor(network.chainId);
   return new JsonRpcProvider(url, network.chainId, { staticNetwork: true });
 }
 

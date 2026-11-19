@@ -23,7 +23,8 @@ const EXPLORER_API: Record<number, string> = {
   10: "https://optimism.blockscout.com/api/v2",
   137: "https://polygon.blockscout.com/api/v2",
   11155111: "https://eth-sepolia.blockscout.com/api/v2",
-  84532: "https://base-sepolia.blockscout.com/api/v2"
+  84532: "https://base-sepolia.blockscout.com/api/v2",
+  46630: "https://explorer.testnet.chain.robinhood.com/api/v2"
 };
 
 function asAddress(value: any): string {

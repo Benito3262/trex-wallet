@@ -8,7 +8,7 @@ import {
   isAddress,
   parseUnits
 } from "ethers";
-import type { EvmNetwork } from "../config/networks";
+import { isTestnet, rpcUrlFor, type EvmNetwork } from "../config/networks";
 import type { StoredWallet } from "./vault";
 import type { TokenMetadata } from "./tokens";
 
@@ -19,16 +19,6 @@ const ERC20_ABI = [
   "function transfer(address,uint256) returns (bool)"
 ];
 
-const TESTNETS = new Set([11155111, 84532]);
-const RPC: Record<number, string> = {
-  11155111: "https://ethereum-sepolia-rpc.publicnode.com",
-  84532: "https://sepolia.base.org"
-};
-
-const RPC_OVERRIDE: Record<number, string | undefined> = {
-  11155111: process.env.EXPO_PUBLIC_SEPOLIA_RPC_URL,
-  84532: process.env.EXPO_PUBLIC_BASE_SEPOLIA_RPC_URL
-};
 
 type FeeQuote =
   | { kind: "eip1559"; maxFeePerGas: bigint; maxPriorityFeePerGas: bigint; cap: bigint }
@@ -43,12 +33,10 @@ function feeQuote(data: Awaited<ReturnType<JsonRpcProvider["getFeeData"]>>): Fee
 }
 
 function providerFor(network: EvmNetwork) {
-  if (!TESTNETS.has(network.chainId)) {
-    throw new Error("ERC-20 transfers are restricted to Sepolia testnets in this development build.");
+  if (!isTestnet(network.chainId)) {
+    throw new Error("ERC-20 transfers are restricted to test networks in this development build.");
   }
-  const rpc = RPC_OVERRIDE[network.chainId] || RPC[network.chainId];
-  if (!rpc) throw new Error("No testnet RPC endpoint is configured.");
-  return new JsonRpcProvider(rpc, network.chainId, { staticNetwork: true });
+  return new JsonRpcProvider(rpcUrlFor(network.chainId), network.chainId, { staticNetwork: true });
 }
 
 function parseTokenAmount(amount: string, decimals: number) {
