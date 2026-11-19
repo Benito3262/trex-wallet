@@ -18,6 +18,7 @@ import { DEFAULT_NETWORK, NETWORKS } from "./src/config/networks";
 import { theme } from "./src/theme";
 import { WalletOnboarding } from "./src/components/WalletOnboarding";
 import { WalletUnlock } from "./src/components/WalletUnlock";
+import { WalletManager } from "./src/components/WalletManager";
 import { getWalletAddress } from "./src/wallet/vault";
 import { getNativeBalance } from "./src/wallet/balances";
 import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
@@ -77,6 +78,7 @@ export default function App() {
   const [customTokens, setCustomTokens] = useState<TokenBalance[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenMetadata | null>(null);
   const [networkPickerOpen, setNetworkPickerOpen] = useState(false);
+  const [walletManagerOpen, setWalletManagerOpen] = useState(false);
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
 
   useEffect(() => {
@@ -165,6 +167,15 @@ export default function App() {
     );
   }
 
+  if (walletManagerOpen && walletAddress) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <WalletManager onBack={() => setWalletManagerOpen(false)} />
+      </SafeAreaView>
+    );
+  }
+
   if (selectedToken && walletAddress) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -243,11 +254,14 @@ export default function App() {
             <Text style={styles.brand}>TREX<Text style={styles.brandAccent}>.</Text></Text>
             <Text style={styles.brandCaption}>YOUR EVM WALLET</Text>
           </View>
+          <View style={styles.headerActions}>
+          <Pressable style={styles.accountButton} onPress={() => setWalletManagerOpen(true)} disabled={!walletAddress}><Text style={styles.accountButtonText}>ACCOUNT</Text></Pressable>
           <Pressable style={styles.networkPill} onPress={() => setNetworkPickerOpen(true)}>
             <View style={styles.networkDot} />
             <Text style={styles.networkText}>{network.shortName}</Text>
             <Text style={styles.chevron}>⌄</Text>
           </Pressable>
+          </View>
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -409,6 +423,9 @@ const styles = StyleSheet.create({
   brand: { color: theme.colors.text, fontSize: 29, fontWeight: "900", letterSpacing: 2.2 },
   brandAccent: { color: theme.colors.primaryBright },
   brandCaption: { color: theme.colors.muted, fontSize: 8, fontWeight: "700", letterSpacing: 2.1, marginTop: -2 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  accountButton: { borderColor: theme.colors.border, borderWidth: 1, borderRadius: 30, paddingVertical: 10, paddingHorizontal: 11 },
+  accountButtonText: { color: theme.colors.primaryBright, fontSize: 8, fontWeight: "900", letterSpacing: 0.8 },
   networkPill: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 30, paddingVertical: 10, paddingHorizontal: 13 },
   networkDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: theme.colors.success },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", justifyContent: "center", padding: 20 },
