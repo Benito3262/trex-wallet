@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
+  ActivityIndicator,
   Linking,
   Modal,
   Alert,
@@ -61,6 +62,7 @@ export default function App() {
   const [restoreMode, setRestoreMode] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [walletUnlocked, setWalletUnlocked] = useState(false);
+  const [booting, setBooting] = useState(true);
   const [nativeBalance, setNativeBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
@@ -120,9 +122,36 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
-    getWalletAddress().then((address) => { if (mounted && address) setWalletAddress(address); }).catch(() => undefined);
+    getWalletAddress().then((address) => { if (mounted && address) setWalletAddress(address); }).catch(() => undefined).finally(() => { if (mounted) setBooting(false); });
     return () => { mounted = false; };
   }, []);
+
+  if (booting) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <View style={styles.splash}>
+          <View style={styles.splashMark}><Text style={styles.splashMarkText}>T</Text></View>
+          <Text style={styles.splashBrand}>TREX<Text style={{ color: theme.colors.primaryBright }}>.</Text></Text>
+          <Text style={styles.splashCaption}>YOUR EVM WALLET</Text>
+          <ActivityIndicator size="small" color={theme.colors.primaryBright} style={{ marginTop: 30 }} />
+          <Text style={styles.splashStatus}>SECURING YOUR SESSION</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (walletAddress && !walletUnlocked && !setupOpen) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <WalletUnlock
+          onUnlocked={(address) => { setWalletAddress(address); setWalletUnlocked(true); }}
+          onRestore={() => { setRestoreMode(true); setSetupOpen(true); }}
+        />
+      </SafeAreaView>
+    );
+  }
 
   if (selectedToken && walletAddress) {
     return (
@@ -341,6 +370,12 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.colors.background },
+  splash: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.background },
+  splashMark: { width: 76, height: 76, borderRadius: 25, backgroundColor: "#211936", borderWidth: 1, borderColor: "#6D4DA8", alignItems: "center", justifyContent: "center" },
+  splashMarkText: { color: "#E9DFFF", fontSize: 48, fontWeight: "900" },
+  splashBrand: { color: theme.colors.text, fontSize: 32, fontWeight: "900", letterSpacing: 4, marginTop: 18 },
+  splashCaption: { color: theme.colors.muted, fontSize: 9, letterSpacing: 2.4, marginTop: 3 },
+  splashStatus: { color: theme.colors.muted, fontSize: 9, letterSpacing: 1.4, marginTop: 12 },
   page: { flex: 1, backgroundColor: theme.colors.background },
   header: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   brand: { color: theme.colors.text, fontSize: 29, fontWeight: "900", letterSpacing: 2.2 },
