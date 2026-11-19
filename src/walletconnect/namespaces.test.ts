@@ -59,3 +59,16 @@ describe("WalletConnect namespaces", () => {
     expect(() => buildApprovedNamespaces({ proposal: proposal as never, supportedNamespaces: supportedNamespaces(ADDRESS) })).toThrow();
   });
 });
+
+describe("WalletConnect request lifetime", () => {
+  const { requestTimeoutMs, DEFAULT_REQUEST_TTL_MS } = jest.requireActual("./namespaces");
+  it("uses the default when no expiry is set", () => {
+    expect(requestTimeoutMs(undefined, 0)).toBe(DEFAULT_REQUEST_TTL_MS);
+    expect(requestTimeoutMs(Number.NaN, 0)).toBe(DEFAULT_REQUEST_TTL_MS);
+  });
+  it("follows the request expiry, clamped to [0, 30 min]", () => {
+    expect(requestTimeoutMs(100, 40_000)).toBe(60_000);
+    expect(requestTimeoutMs(10, 60_000)).toBe(0);
+    expect(requestTimeoutMs(10_000_000, 0)).toBe(30 * 60_000);
+  });
+});

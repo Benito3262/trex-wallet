@@ -37,11 +37,29 @@ function originLabel(origin: string) {
 export function RequestHost() {
   const [head, setHead] = useState<PendingRequest | null>(null);
   const [queued, setQueued] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => approvalQueue.subscribe((next, size) => { setHead(next); setQueued(size); }), []);
+  // Explain sheets that close on their own (WalletConnect expiry or disconnect).
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const off = approvalQueue.onCancelled(({ peer, message }) => {
+      setNotice(`${peer.name || originLabel(peer.origin)}: ${message}`);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setNotice(null), 4500);
+    });
+    return () => { off(); if (timer) clearTimeout(timer); };
+  }, []);
   return (
-    <BottomSheet visible={!!head} onClose={() => head?.reject(userRejected())}>
-      {head && <RequestBody key={head.id} request={head} queued={queued} />}
-    </BottomSheet>
+    <>
+      <BottomSheet visible={!!head} onClose={() => head?.reject(userRejected())}>
+        {head && <RequestBody key={head.id} request={head} queued={queued} />}
+      </BottomSheet>
+      {notice && (
+        <FadeIn key={notice} style={styles.toast} >
+          <Text style={styles.toastText} accessibilityRole="alert">{notice}</Text>
+        </FadeIn>
+      )}
+    </>
   );
 }
 
@@ -147,7 +165,7 @@ function useSigner(request: Extract<PendingRequest, { type: "sign" }>) {
   const [error, setError] = useState("");
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
-  async function run(task: (accountId: string) => Promise<string>) {
+  async function run(task: (accountId: string, guard: () => void) => Promise<string>) {
     if (busy) return;
     setBusy(true);
     setError("");
@@ -157,7 +175,7 @@ function useSigner(request: Extract<PendingRequest, { type: "sign" }>) {
         throw new Error("The active account changed since the site asked. Reject and try again from the site.");
       }
       if (state.network.chainId !== request.chainId) throw new Error("The network changed since the site asked. Reject and try again.");
-      const result = await task(state.accountId);
+      const result = await task(state.accountId, () => approvalQueue.assertPending(request.id));
       request.resolve(result);
     } catch (e) {
       if (mounted.current) setError(errorMessage(e, "Signing failed."));
@@ -228,7 +246,7 @@ function TransactionBody({ request, tx }: { request: Extract<PendingRequest, { t
   }, [tx, network, analysis, approval, canLimit, tokenAddress]);
 
   async function approve() {
-    await run(async (accountId) => {
+    await run(async (accountId, guard) => {
       let finalPrepared = prepared;
       if (canLimit && exact) {
         const decimals = token?.decimals ?? 18;
@@ -241,7 +259,7 @@ function TransactionBody({ request, tx }: { request: Extract<PendingRequest, { t
         finalPrepared = resim.prepared;
       }
       if (!finalPrepared) throw new Error("The transaction is still being checked.");
-      return sendPreparedTransaction({ accountId, expectedAddress: request.request.address, network, prepared: finalPrepared, origin: request.peer.origin });
+      return sendPreparedTransaction({ accountId, expectedAddress: request.request.address, network, prepared: finalPrepared, origin: request.peer.origin, guard });
     });
   }
 
@@ -303,7 +321,7 @@ function MessageBody({ request }: { request: Extract<PendingRequest, { type: "si
       {!!error && <Text style={styles.error}>{error}</Text>}
       <Buttons
         approveLabel={review.blockedReason ? "BLOCKED" : "SIGN"}
-        onApprove={() => run((accountId) => signPersonalMessage(accountId, sign.address, request.chainId, sign.message))}
+        onApprove={() => run((accountId, guard) => signPersonalMessage(accountId, sign.address, request.chainId, sign.message, guard))}
         onReject={() => request.reject(userRejected())}
         disabled={!!review.blockedReason || (review.level === "critical" && !ack)}
         busy={busy}
@@ -342,7 +360,7 @@ function TypedBody({ request }: { request: Extract<PendingRequest, { type: "sign
       {!!error && <Text style={styles.error}>{error}</Text>}
       <Buttons
         approveLabel={review?.blockedReason ? "BLOCKED" : "SIGN"}
-        onApprove={() => run((accountId) => signTypedDataV4(accountId, sign.address, request.chainId, sign.typedData))}
+        onApprove={() => run((accountId, guard) => signTypedDataV4(accountId, sign.address, request.chainId, sign.typedData, guard))}
         onReject={() => request.reject(userRejected())}
         disabled={!review || !!review.blockedReason || (review.level === "critical" && !ack)}
         busy={busy}
@@ -361,6 +379,8 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  toast: { position: "absolute", left: 16, right: 16, bottom: 28, backgroundColor: theme.colors.surfaceRaised, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 14, padding: 14, shadowColor: "#000000", shadowOpacity: 0.4, shadowRadius: 12, elevation: 12 },
+  toastText: { color: theme.colors.text, fontSize: 11, lineHeight: 17 },
   peer: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
   peerIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: theme.colors.surfaceRaised, borderWidth: 1, borderColor: theme.colors.border, alignItems: "center", justifyContent: "center" },
   peerIconText: { color: theme.colors.primaryBright, fontWeight: "900", fontSize: 16 },

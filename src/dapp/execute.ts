@@ -13,15 +13,17 @@ import { unlockAccount } from "../wallet/vault";
  * biometrics, re-checks the network rules, signs, and drops the key.
  */
 
-export async function signPersonalMessage(accountId: string, expectedAddress: string, chainId: number, message: string): Promise<string> {
+/** `guard` runs after biometrics and right before signing; it throws if the request was withdrawn meanwhile. */
+export async function signPersonalMessage(accountId: string, expectedAddress: string, chainId: number, message: string, guard?: () => void): Promise<string> {
   assertSigningAllowed(chainId);
   const { signer } = await unlockAccount(accountId, "Authenticate to sign this message");
   if (signer.address.toLowerCase() !== expectedAddress.toLowerCase()) throw new Error("The active account changed. Request cancelled.");
   const bytes = isHexString(message) ? getBytes(message) : toUtf8Bytes(message);
+  guard?.();
   return signer.signMessage(bytes);
 }
 
-export async function signTypedDataV4(accountId: string, expectedAddress: string, chainId: number, typedData: unknown): Promise<string> {
+export async function signTypedDataV4(accountId: string, expectedAddress: string, chainId: number, typedData: unknown, guard?: () => void): Promise<string> {
   assertSigningAllowed(chainId);
   const summary = summarizeTypedData(typedData);
   if (summary.chainId !== null) {
@@ -31,6 +33,7 @@ export async function signTypedDataV4(accountId: string, expectedAddress: string
   const { signer } = await unlockAccount(accountId, "Authenticate to sign this request");
   if (signer.address.toLowerCase() !== expectedAddress.toLowerCase()) throw new Error("The active account changed. Request cancelled.");
   const { domain, message } = summary.payload;
+  guard?.();
   return signer.signTypedData(domain as Record<string, never>, typesForSigning(summary.payload), message);
 }
 
@@ -40,6 +43,7 @@ export async function sendPreparedTransaction(opts: {
   network: EvmNetwork;
   prepared: PreparedTransaction;
   origin: string;
+  guard?: () => void;
 }): Promise<string> {
   const { network, prepared } = opts;
   assertSigningAllowed(network.chainId);
@@ -56,6 +60,7 @@ export async function sendPreparedTransaction(opts: {
     if (balance < prepared.value + gasLimit * fee.cap) {
       throw new Error(`Insufficient ${network.symbol} for the amount and maximum network fee.`);
     }
+    opts.guard?.();
     const response = await signer.sendTransaction({
       ...request,
       gasLimit,

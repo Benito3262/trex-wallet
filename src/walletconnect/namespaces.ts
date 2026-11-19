@@ -57,3 +57,16 @@ export function pairingUriFromDeepLink(url: string): string | null {
   if (!match) return null;
   try { return decodeURIComponent(match[1]); } catch { return null; }
 }
+
+/** WalletConnect's default request lifetime when the dApp doesn't set one. */
+export const DEFAULT_REQUEST_TTL_MS = 5 * 60_000;
+const MAX_REQUEST_TTL_MS = 30 * 60_000;
+
+/**
+ * How long TREX keeps a WalletConnect request's review open. Uses the request's own
+ * expiryTimestamp (seconds) when present, capped so a sheet never lingers for hours.
+ */
+export function requestTimeoutMs(expiryTimestamp: number | undefined | null, now = Date.now()): number {
+  if (typeof expiryTimestamp !== "number" || !Number.isFinite(expiryTimestamp) || expiryTimestamp <= 0) return DEFAULT_REQUEST_TTL_MS;
+  return Math.min(Math.max(expiryTimestamp * 1000 - now, 0), MAX_REQUEST_TTL_MS);
+}

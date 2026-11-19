@@ -2,12 +2,12 @@ import { Core } from "@walletconnect/core";
 import { WalletKit, type IWalletKit, type WalletKitTypes } from "@reown/walletkit";
 import { buildApprovedNamespaces, getSdkError } from "@walletconnect/utils";
 import type { SessionTypes } from "@walletconnect/types";
-import { approvalQueue, type PeerInfo } from "../dapp/approvalCenter";
+import { approvalQueue, type PendingRequest, type PeerInfo } from "../dapp/approvalCenter";
 import { ProviderRpcError, ErrorCodes, toRpcError } from "../dapp/errors";
 import { routeRequest, toHexChainId } from "../dapp/router";
 import { connectOrigin, createRequestContext, disconnectOrigin } from "../dapp/session";
 import { getWalletState, hasWalletState, subscribeWalletState } from "../dapp/walletState";
-import { parseCaipChain, supportedNamespaces, validatePairingUri } from "./namespaces";
+import { parseCaipChain, requestTimeoutMs, supportedNamespaces, validatePairingUri } from "./namespaces";
 
 /** Public Reown project ID, injected at build time. Missing ID disables WalletConnect without crashing. */
 export const WALLETCONNECT_PROJECT_ID = process.env.EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim() || "";
@@ -95,22 +95,41 @@ export function initWalletConnect(): Promise<IWalletKit> {
   return initPromise;
 }
 
+const expiredError = () => new ProviderRpcError(ErrorCodes.resourceUnavailable, "The request expired before it was approved. Nothing was signed.");
+
+/** Closes any open review for a WalletConnect session and forgets its site mapping. */
+function cleanupSession(topic: string, message: string) {
+  approvalQueue.cancelWhere((item: PendingRequest) => item.peer.wcTopic === topic, new ProviderRpcError(ErrorCodes.disconnected, message));
+  const origin = sessionOrigins.get(topic);
+  sessionOrigins.delete(topic);
+  return origin;
+}
+
 function attachListeners(instance: IWalletKit) {
   instance.on("session_proposal", (proposal) => { void handleProposal(instance, proposal); });
   instance.on("session_request", (event) => { void handleRequest(instance, event); });
   instance.on("session_delete", (event) => {
-    const origin = sessionOrigins.get(event.topic);
-    sessionOrigins.delete(event.topic);
-    if (origin) void disconnectOrigin(origin);
+    const origin = cleanupSession(event.topic, "The app ended the WalletConnect session.");
+    if (origin && !hasOtherSession(instance, event.topic, origin)) void disconnectOrigin(origin);
     refreshSessions();
   });
-  instance.on("proposal_expire", () => {
+  instance.on("proposal_expire", (event) => {
+    approvalQueue.cancelWhere((item: PendingRequest) => item.peer.wcProposalId === event.id, new ProviderRpcError(ErrorCodes.resourceUnavailable, "The connection request expired. Ask the site for a new QR code."));
     setState({ pairing: false, error: "The connection request expired before it was approved. Ask the site for a new QR code." });
   });
-  instance.on("session_request_expire", () => {
-    // The dApp gave up waiting; the head sheet for that site is no longer useful.
+  instance.on("session_request_expire", (event) => {
+    // The dApp gave up waiting: close its review so nothing is signed for a dead request.
+    approvalQueue.cancelWhere((item: PendingRequest) => item.peer.wcRequestId === event.id, expiredError());
     refreshSessions();
   });
+  try {
+    // Session expiry is only exposed on the underlying sign client.
+    instance.engine.signClient.events.on("session_expire", ({ topic }) => {
+      const origin = cleanupSession(topic, "The WalletConnect session expired.");
+      if (origin && !hasOtherSession(instance, topic, origin)) void disconnectOrigin(origin);
+      refreshSessions();
+    });
+  } catch { /* older clients: the sessions list refresh still drops it */ }
   instance.on("session_authenticate", (event) => {
     // One-click auth is not supported yet; rejecting makes dApps fall back to a normal session proposal.
     instance.rejectSessionAuthenticate({ id: event.id, reason: getSdkError("USER_REJECTED") }).catch(() => undefined);
@@ -123,11 +142,19 @@ function attachListeners(instance: IWalletKit) {
 
 const sessionOrigins = new Map<string, string>();
 
+function hasOtherSession(instance: IWalletKit, topic: string, origin: string): boolean {
+  try {
+    return Object.values(instance.getActiveSessions()).some((session) => session.topic !== topic && peerFromSession(session).origin === origin);
+  } catch {
+    return false;
+  }
+}
+
 async function handleProposal(instance: IWalletKit, proposal: WalletKitTypes.SessionProposal) {
   if (pairingTimer) { clearTimeout(pairingTimer); pairingTimer = null; }
   setState({ pairing: false });
   const meta = proposal.params.proposer.metadata;
-  const peer: PeerInfo = { origin: originFromUrl(meta.url), source: "walletconnect", name: meta.name, icon: meta.icons?.[0] };
+  const peer: PeerInfo = { origin: originFromUrl(meta.url), source: "walletconnect", name: meta.name, icon: meta.icons?.[0], wcProposalId: proposal.id };
   try {
     if (!hasWalletState() || !getWalletState().unlocked || !getWalletState().address) throw new Error("Unlock TREX Wallet before connecting.");
     // Validate up front so unsupported chains/methods are rejected before showing a prompt.
@@ -155,11 +182,17 @@ async function handleRequest(instance: IWalletKit, event: WalletKitTypes.Session
   const { topic, id, params } = event;
   const respondError = (error: unknown) =>
     instance.respondSessionRequest({ topic, response: { id, jsonrpc: "2.0", error: { code: toRpcError(error).code, message: toRpcError(error).message } } }).catch(() => undefined);
+  let timer: ReturnType<typeof setTimeout> | null = null;
   try {
     const session = instance.getActiveSessions()[topic];
     if (!session) throw new ProviderRpcError(ErrorCodes.unauthorized, "Unknown or expired WalletConnect session.");
-    const peer = peerFromSession(session);
+    const peer: PeerInfo = { ...peerFromSession(session), wcTopic: topic, wcRequestId: id };
     sessionOrigins.set(topic, peer.origin);
+    // Close the review when the request's lifetime runs out, even if the relay never tells us.
+    const ttl = requestTimeoutMs((params.request as { expiryTimestamp?: number }).expiryTimestamp);
+    timer = setTimeout(() => {
+      approvalQueue.cancelWhere((item: PendingRequest) => item.peer.wcTopic === topic && item.peer.wcRequestId === id, expiredError());
+    }, ttl);
     const { method } = params.request;
     let requestParams = params.request.params as unknown;
     const requestedChain = parseCaipChain(params.chainId);
@@ -173,6 +206,8 @@ async function handleRequest(instance: IWalletKit, event: WalletKitTypes.Session
     await instance.respondSessionRequest({ topic, response: { id, jsonrpc: "2.0", result: result ?? null } });
   } catch (error) {
     await respondError(error);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -227,6 +262,7 @@ export async function pair(input: string): Promise<void> {
 }
 
 export async function disconnectSession(topic: string): Promise<void> {
+  approvalQueue.cancelWhere((item: PendingRequest) => item.peer.wcTopic === topic, new ProviderRpcError(ErrorCodes.disconnected, "You disconnected this app."), false);
   const origin = sessionOrigins.get(topic);
   if (kit) {
     try { await kit.disconnectSession({ topic, reason: getSdkError("USER_DISCONNECTED") }); } catch { /* already gone */ }

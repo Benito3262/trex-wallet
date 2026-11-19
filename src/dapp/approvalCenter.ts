@@ -1,7 +1,18 @@
 import { ProviderRpcError, ErrorCodes, userRejected } from "./errors";
 import type { DappSource, SignRequest } from "./router";
 
-export type PeerInfo = { origin: string; source: DappSource; name?: string; icon?: string };
+export type PeerInfo = {
+  origin: string;
+  source: DappSource;
+  name?: string;
+  icon?: string;
+  /** WalletConnect bookkeeping so expiry and disconnects can close the right sheet. */
+  wcTopic?: string;
+  wcRequestId?: number;
+  wcProposalId?: number;
+};
+
+export type CancelNotice = { peer: PeerInfo; type: PendingRequest["type"]; message: string };
 
 export type PendingRequest =
   | { id: number; type: "connect"; peer: PeerInfo; chainId: number; resolve: (approved: boolean) => void; reject: (error: Error) => void }
@@ -23,6 +34,22 @@ export class ApprovalQueue {
   private items: PendingRequest[] = [];
   private listeners = new Set<(head: PendingRequest | null, size: number) => void>();
   private nextId = 1;
+  private cancelListeners = new Set<(notice: CancelNotice) => void>();
+
+  /** Notified when a request is withdrawn by something other than the user (expiry, disconnect). */
+  onCancelled(listener: (notice: CancelNotice) => void): () => void {
+    this.cancelListeners.add(listener);
+    return () => { this.cancelListeners.delete(listener); };
+  }
+
+  isPending(id: number): boolean {
+    return this.items.some((item) => item.id === id);
+  }
+
+  /** Throws when the request was withdrawn meanwhile, so nothing is signed for a dead request. */
+  assertPending(id: number): void {
+    if (!this.isPending(id)) throw new ProviderRpcError(ErrorCodes.resourceUnavailable, "This request expired or was withdrawn by the app. Nothing was signed.");
+  }
 
   subscribe(listener: (head: PendingRequest | null, size: number) => void): () => void {
     this.listeners.add(listener);
@@ -64,6 +91,19 @@ export class ApprovalQueue {
       this.items.push(item);
       this.notify();
     });
+  }
+
+  /**
+   * Rejects matching requests and tells listeners why (e.g. a WalletConnect request
+   * expired or its session ended). Returns how many were cancelled.
+   */
+  cancelWhere(match: (item: PendingRequest) => boolean, error: Error, notify = true): number {
+    const matches = this.items.filter(match);
+    matches.forEach((item) => {
+      item.reject(error);
+      if (notify) this.cancelListeners.forEach((listener) => { try { listener({ peer: item.peer, type: item.type, message: error.message }); } catch { /* ignore */ } });
+    });
+    return matches.length;
   }
 
   /** Rejects every pending request from one origin (navigation, disconnect, session expiry). */
