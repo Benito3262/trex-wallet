@@ -1,7 +1,11 @@
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Keyboard, Pressable, StatusBar, StyleSheet, Text, TextInput, View } from "react-native";
-import WebView, { type WebViewNavigation } from "react-native-webview";
+import WebView from "react-native-webview";
 import { theme } from "../theme";
+
+const BrowserWebView = WebView as unknown as React.ComponentType<any>;
+type BrowserNavigation = { url: string; canGoBack: boolean; canGoForward: boolean };
+type BrowserHandle = { reload: () => void; goBack: () => void; goForward: () => void };
 
 const HOME = "https://www.google.com";
 
@@ -16,7 +20,7 @@ function normalizeUrl(input: string): string {
 }
 
 export function DappBrowser({ onClose }: { onClose: () => void }) {
-  const web = useRef<WebView>(null);
+  const web = useRef<BrowserHandle | null>(null);
   const [url, setUrl] = useState(HOME);
   const [input, setInput] = useState(HOME);
   const [loading, setLoading] = useState(false);
@@ -35,7 +39,7 @@ export function DappBrowser({ onClose }: { onClose: () => void }) {
     }
   }
 
-  function onNavigation(state: WebViewNavigation) {
+  function onNavigation(state: BrowserNavigation) {
     setUrl(state.url);
     setInput(state.url);
     setCanGoBack(state.canGoBack);
@@ -58,14 +62,14 @@ export function DappBrowser({ onClose }: { onClose: () => void }) {
       <View style={styles.securityNotice}><Text style={styles.noticeText}>Browsing only. Wallet signing and dApp connections are not enabled yet. Never enter your recovery phrase on a website.</Text></View>
       <View style={styles.webArea}>
         {loading && <View style={styles.loading}><ActivityIndicator color={theme.colors.primaryBright}/><Text style={styles.loadingText}>Loading website…</Text></View>}
-        <WebView
+        <BrowserWebView
           ref={web}
           source={{ uri: url }}
           onLoadStart={() => setLoading(true)}
           onLoadEnd={() => setLoading(false)}
           onNavigationStateChange={onNavigation}
           onError={() => { setLoading(false); setError("This website could not be loaded."); }}
-          onShouldStartLoadWithRequest={(request) => request.url.startsWith("https://") || request.url.startsWith("http://")}
+          onShouldStartLoadWithRequest={(request: { url: string }) => request.url.startsWith("https://") || request.url.startsWith("http://")}
           javaScriptEnabled
           domStorageEnabled
           setSupportMultipleWindows={false}
