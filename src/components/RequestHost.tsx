@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { AnimatedPressable as Pressable } from "./AnimatedPressable";
 import { formatEther, formatUnits } from "ethers";
 import { MAINNET_SIGNING_BLOCKED_MESSAGE, isTestnet, networkByChainId } from "../config/networks";
 import { approvalQueue, type PendingRequest } from "../dapp/approvalCenter";
@@ -16,7 +17,7 @@ import { readTokenInfo, type TokenInfo } from "../wallet/approvalsChain";
 import { hasInteracted } from "../wallet/localStore";
 import { errorMessage } from "../wallet/rpc";
 import { theme } from "../theme";
-import { BottomSheet, FadeIn, SpringPressable } from "./motion";
+import { BottomSheet, FadeIn, SheetScrollView, SpringPressable, useLingering } from "./motion";
 
 const riskColor: Record<Review["level"], string> = {
   info: theme.colors.success,
@@ -38,6 +39,7 @@ export function RequestHost() {
   const [head, setHead] = useState<PendingRequest | null>(null);
   const [queued, setQueued] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const shown = useLingering(head);
   useEffect(() => approvalQueue.subscribe((next, size) => { setHead(next); setQueued(size); }), []);
   // Explain sheets that close on their own (WalletConnect expiry or disconnect).
   useEffect(() => {
@@ -51,8 +53,8 @@ export function RequestHost() {
   }, []);
   return (
     <>
-      <BottomSheet visible={!!head} onClose={() => head?.reject(userRejected())}>
-        {head && <RequestBody key={head.id} request={head} queued={queued} />}
+      <BottomSheet visible={!!head} onClose={() => head?.reject(userRejected())} scrollable>
+        {shown && <RequestBody key={shown.id} request={shown} queued={queued} />}
       </BottomSheet>
       {notice && (
         <FadeIn key={notice} style={styles.toast} >
@@ -110,7 +112,7 @@ function Findings({ review }: { review: Review }) {
 
 function RequestBody({ request, queued }: { request: PendingRequest; queued: number }) {
   return (
-    <ScrollView style={{ maxHeight: 640 }} keyboardShouldPersistTaps="handled">
+    <SheetScrollView>
       <PeerHeader request={request} />
       {queued > 1 && <Text style={styles.queued}>{queued - 1} more request{queued > 2 ? "s" : ""} waiting</Text>}
       {request.type === "connect" && <ConnectBody request={request} />}
@@ -118,7 +120,7 @@ function RequestBody({ request, queued }: { request: PendingRequest; queued: num
       {request.type === "sign" && request.request.kind === "transaction" && <TransactionBody request={request} tx={request.request.tx} />}
       {request.type === "sign" && request.request.kind === "personal_sign" && <MessageBody request={request} />}
       {request.type === "sign" && request.request.kind === "typed_data" && <TypedBody request={request} />}
-    </ScrollView>
+    </SheetScrollView>
   );
 }
 

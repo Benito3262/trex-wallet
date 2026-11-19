@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from "./AnimatedPressable";
+import { afterPaint } from "../utils/defer";
 import * as Clipboard from "expo-clipboard";
 import { usePreventScreenCapture } from "expo-screen-capture";
 import {
@@ -13,7 +15,7 @@ import {
 } from "../wallet/vault";
 import { activeAccount, type AccountMeta, type AccountRegistry } from "../wallet/accounts";
 import { theme } from "../theme";
-import { BottomSheet, FadeIn, SpringPressable } from "./motion";
+import { BottomSheet, FadeIn, SheetTextInput, SpringPressable, useLingering } from "./motion";
 
 type Props = {
   onBack: () => void;
@@ -34,6 +36,7 @@ export function WalletManager({ onBack, onAddWallet, onActiveChanged }: Props) {
   const [renameTarget, setRenameTarget] = useState<AccountMeta | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [removeTarget, setRemoveTarget] = useState<AccountMeta | null>(null);
+  const shownRemove = useLingering(removeTarget);
   const [privateKey, setPrivateKey] = useState("");
 
   useEffect(() => {
@@ -48,6 +51,7 @@ export function WalletManager({ onBack, onAddWallet, onActiveChanged }: Props) {
     if (busy) return;
     setBusy(true);
     setMessage("");
+    await afterPaint();
     try { await task(); } catch (error) {
       setMessage(error instanceof Error ? error.message : "That did not work. Try again.");
     } finally { setBusy(false); }
@@ -178,14 +182,14 @@ export function WalletManager({ onBack, onAddWallet, onActiveChanged }: Props) {
 
       <BottomSheet visible={!!renameTarget} onClose={() => setRenameTarget(null)}>
         <Text style={styles.sheetTitle}>Rename account</Text>
-        <TextInput value={renameValue} onChangeText={setRenameValue} maxLength={32} autoFocus placeholder="Account name" placeholderTextColor={theme.colors.muted} style={styles.input} />
+        <SheetTextInput value={renameValue} onChangeText={setRenameValue} maxLength={32} autoFocus placeholder="Account name" placeholderTextColor={theme.colors.muted} style={styles.input} />
         <SpringPressable style={styles.primary} onPress={confirmRename} disabled={busy}><Text style={styles.primaryText}>SAVE NAME</Text></SpringPressable>
         <Pressable style={styles.secondary} onPress={() => setRenameTarget(null)}><Text style={styles.secondaryText}>CANCEL</Text></Pressable>
       </BottomSheet>
 
       <BottomSheet visible={!!removeTarget} onClose={() => setRemoveTarget(null)}>
-        <Text style={styles.sheetTitle}>Remove {removeTarget?.name}?</Text>
-        <Text style={styles.intro}>{removeTarget ? short(removeTarget.address) : ""}</Text>
+        <Text style={styles.sheetTitle}>Remove {shownRemove?.name}?</Text>
+        <Text style={styles.intro}>{shownRemove ? short(shownRemove.address) : ""}</Text>
         <Text style={[styles.warning, { marginTop: 12 }]}>
           {removingLastOfSecret
             ? "This is the last account using this recovery phrase or key, so the phrase or key will be deleted from this device. You can only get this account back with your written backup."

@@ -19,6 +19,9 @@
 ## Phase 2 — Read-only wallet
 - [x] Add supported mainnets, Sepolia, Base Sepolia and Robinhood Chain testnet
 - [x] Read native-asset balances from configured RPC providers
+- [x] Multi-RPC fallback with timeouts and chain-ID checks; dead Ethereum/Polygon RPCs replaced
+- [x] Mainnet token detection from a verified well-known token list over RPC
+- [x] Motion overhaul: UI-thread press feedback + haptics, stack transitions with swipe-back, gesture bottom sheets, skeletons, pull-to-refresh, balance count-up
 - [x] Receive address and QR code
 - [x] Local transaction metadata history
 - [x] Add manual ERC-20 contract inspection and custom token balances

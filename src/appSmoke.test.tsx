@@ -61,5 +61,5 @@ describe("app startup", () => {
     expect(text).not.toContain("Something went wrong");
     expect(text).toContain("Create wallet");
     act(() => renderer.unmount());
-  });
+  }, 120_000); // a cold CI cache transforms the whole graph (WalletKit, ethers, navigation) first
 });

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { AnimatedPressable as Pressable } from "./AnimatedPressable";
 import * as Clipboard from "expo-clipboard";
 import { disconnectSession, getWcState, initWalletConnect, pair, subscribeWc, type WcState } from "../walletconnect/service";
 import { theme } from "../theme";

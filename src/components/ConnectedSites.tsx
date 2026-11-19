@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from "./AnimatedPressable";
 import { connectionList, disconnectOrigin, subscribeConnections } from "../dapp/session";
 import type { Connection } from "../wallet/localStore";
 import { theme } from "../theme";

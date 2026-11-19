@@ -1,12 +1,13 @@
 import {
-  JsonRpcProvider,
+  type JsonRpcProvider,
   type BaseWallet,
   formatEther,
   parseEther,
   isAddress,
   type FeeData
 } from "ethers";
-import { assertSigningAllowed, rpcUrlFor, type EvmNetwork } from "../config/networks";
+import { assertSigningAllowed, type EvmNetwork } from "../config/networks";
+import { bestProvider } from "./rpcPool";
 
 function assertTestnetSendingEnabled(network: EvmNetwork) {
   assertSigningAllowed(network.chainId);
@@ -26,8 +27,7 @@ export type NativeTransferPreview = {
 };
 
 function providerFor(network: EvmNetwork) {
-  const url = rpcUrlFor(network.chainId);
-  return new JsonRpcProvider(url, network.chainId, { staticNetwork: true });
+  return bestProvider(network);
 }
 
 async function assertExpectedChain(provider: JsonRpcProvider, network: EvmNetwork) {

@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { unlockAccount } from "../wallet/vault";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from "./AnimatedPressable";
+import { haptic } from "./haptics";
+import { authenticateWallet } from "../wallet/vault";
 import { theme } from "../theme";
 import { BrandLogo, Wordmark } from "./brand";
 import { FadeIn } from "./motion";
@@ -14,7 +16,9 @@ export function WalletUnlock({ onUnlocked, onRestore }: { onUnlocked: (address: 
     setBusy(true);
     setError("");
     try {
-      const { account } = await unlockAccount(undefined, "Authenticate to unlock your TREX Wallet");
+      // Biometric gate only; no key derivation on unlock, so the app opens instantly after auth.
+      const account = await authenticateWallet("Authenticate to unlock your TREX Wallet");
+      haptic("success");
       onUnlocked(account.address);
     } catch {
       setError("Authentication was cancelled or the wallet could not be unlocked. Try again or restore your wallet.");
@@ -35,7 +39,7 @@ export function WalletUnlock({ onUnlocked, onRestore }: { onUnlocked: (address: 
         <Text style={styles.kicker}>WELCOME BACK</Text>
         <Text style={styles.title}>Your wallet, protected.</Text>
         <Text style={styles.body}>Sign in securely on this device to access your assets and continue where you left off.</Text>
-        <Pressable accessibilityRole="button" onPress={unlock} disabled={busy} style={({ pressed }) => [styles.primary, pressed && !busy && styles.pressed, busy && styles.busy]}>
+        <Pressable onPress={unlock} disabled={busy} haptic="medium" accessibilityState={{ busy }} style={[styles.primary, busy && styles.busy]}>
           {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Sign in securely</Text>}
         </Pressable>
         <Text style={styles.secureNote}>BIOMETRIC AUTHENTICATION · KEYS STAY ON YOUR DEVICE</Text>

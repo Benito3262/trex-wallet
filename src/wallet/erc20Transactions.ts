@@ -1,13 +1,14 @@
 import {
   Contract,
-  JsonRpcProvider,
+  type JsonRpcProvider,
   type BaseWallet,
   formatEther,
   formatUnits,
   isAddress,
   parseUnits
 } from "ethers";
-import { isTestnet, rpcUrlFor, type EvmNetwork } from "../config/networks";
+import { isTestnet, type EvmNetwork } from "../config/networks";
+import { bestProvider } from "./rpcPool";
 import type { TokenMetadata } from "./tokens";
 
 const ERC20_ABI = [
@@ -34,7 +35,7 @@ function providerFor(network: EvmNetwork) {
   if (!isTestnet(network.chainId)) {
     throw new Error("ERC-20 transfers are restricted to test networks in this development build.");
   }
-  return new JsonRpcProvider(rpcUrlFor(network.chainId), network.chainId, { staticNetwork: true });
+  return bestProvider(network);
 }
 
 function parseTokenAmount(amount: string, decimals: number) {

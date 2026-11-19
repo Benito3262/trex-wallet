@@ -12,7 +12,6 @@ describe("Android permissions", () => {
     "android.permission.WRITE_EXTERNAL_STORAGE",
     "android.permission.READ_MEDIA_IMAGES",
     "android.permission.SYSTEM_ALERT_WINDOW",
-    "android.permission.VIBRATE",
     "android.permission.ACCESS_WIFI_STATE",
     "android.permission.RECORD_AUDIO",
     "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
@@ -22,7 +21,8 @@ describe("Android permissions", () => {
   it("never blocks what the app or its libraries need", () => {
     // DETECT_SCREEN_CAPTURE: expo-screen-capture registers an Android 14+ screen-capture
     // callback at startup, which throws SecurityException without it (the d7dcc2d launch crash).
-    for (const needed of ["CAMERA", "INTERNET", "USE_BIOMETRIC", "USE_FINGERPRINT", "ACCESS_NETWORK_STATE", "DETECT_SCREEN_CAPTURE"]) {
+    // VIBRATE: expo-haptics drives press feedback through the vibrator service.
+    for (const needed of ["CAMERA", "INTERNET", "USE_BIOMETRIC", "USE_FINGERPRINT", "ACCESS_NETWORK_STATE", "DETECT_SCREEN_CAPTURE", "VIBRATE"]) {
       expect(android.blockedPermissions.some((p) => p.endsWith(`.${needed}`))).toBe(false);
     }
   });

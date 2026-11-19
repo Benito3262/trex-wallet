@@ -1,9 +1,13 @@
-import { JsonRpcProvider, type FeeData } from "ethers";
-import { rpcUrlFor, type EvmNetwork } from "../config/networks";
+import type { FeeData, JsonRpcProvider } from "ethers";
+import type { EvmNetwork } from "../config/networks";
+import { bestProvider, withProvider } from "./rpcPool";
 
-/** Short-lived provider pinned to the expected chain. Callers must destroy() it. */
+/**
+ * Short-lived provider on the healthiest known endpoint, with a request timeout.
+ * Used for signing flows, which must not silently retry on another endpoint. Callers must destroy() it.
+ */
 export function providerFor(network: EvmNetwork): JsonRpcProvider {
-  return new JsonRpcProvider(rpcUrlFor(network.chainId), network.chainId, { staticNetwork: true, batchMaxCount: 1 });
+  return bestProvider(network);
 }
 
 export async function assertChain(provider: JsonRpcProvider, network: EvmNetwork): Promise<void> {
@@ -35,12 +39,7 @@ export function selectFee(feeData: FeeData): FeeQuote {
 
 /** Read-only JSON-RPC passthrough for dApps, with a timeout. */
 export async function readRpc(network: EvmNetwork, method: string, params: unknown[]): Promise<unknown> {
-  const provider = providerFor(network);
-  try {
-    return await withTimeout(provider.send(method, params), 20000, "The network RPC timed out.");
-  } finally {
-    provider.destroy();
-  }
+  return withProvider(network, (provider) => provider.send(method, params), 20000);
 }
 
 export function errorMessage(error: unknown, fallback: string): string {

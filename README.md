@@ -24,11 +24,13 @@ TREX Wallet is a personal, non-custodial EVM wallet for Android. Its design prio
 
 ## Networks
 
-Mainnets: Ethereum, Base, BNB Smart Chain, Arbitrum One, Optimism and Polygon. **Mainnet signing is disabled.** You can read balances on a mainnet and connect dApps there, but every mainnet transaction, typed-data or message signature is blocked with an explanation.
+Mainnets: Ethereum, Base, BNB Smart Chain, Arbitrum One, Optimism and Polygon. **Mainnet signing is disabled.** You can read balances on a mainnet and connect dApps there, but every mainnet transaction, typed-data or message signature is blocked. In the app this shows as a friendly "Mainnet sending is coming soon" sheet (with a one-tap switch to Sepolia) rather than greyed-out buttons.
 
 Testnets where signing is enabled: Ethereum Sepolia, Base Sepolia and Robinhood Chain testnet (chain ID 46630, RPC `https://rpc.testnet.chain.robinhood.com`). New installs default to Base Sepolia.
 
-Public RPC endpoints are configured in the source as fallbacks. You can override them with the variables in `.env.example`. RPC providers can see your public address and network requests. Values prefixed with `EXPO_PUBLIC_` are bundled into the app, so never put private API credentials, seed phrases or private keys in them.
+Each chain has several free public RPC endpoints (publicnode, the chain's official RPC, dRPC, 1RPC). Reads go through `src/wallet/rpcPool.ts`: every request has an 8-second timeout, each endpoint's chain ID is checked, a failing endpoint is cooled down for a minute and the next one is tried, and the last endpoint that worked is tried first. Popular mainnet tokens (USDC, USDT, DAI, WETH and each chain's own token; see `src/config/knownTokens.ts`, every entry read from the chain) are detected with `balanceOf` over RPC, so token balances show up even when the public explorer index can't be reached.
+
+Public RPC endpoints are configured in the source. You can override them with the variables in `.env.example`. RPC providers can see your public address and network requests. Values prefixed with `EXPO_PUBLIC_` are bundled into the app, so never put private API credentials, seed phrases or private keys in them.
 
 ## WalletConnect project ID
 
@@ -36,7 +38,7 @@ WalletConnect reads the public Reown project ID from `EXPO_PUBLIC_WALLETCONNECT_
 
 ## Android permissions
 
-The release APK asks only for `CAMERA` (QR scanning; requested when you first scan), `USE_BIOMETRIC` / `USE_FINGERPRINT` (unlock and signing), `INTERNET` and `ACCESS_NETWORK_STATE` (RPC and WalletConnect connectivity), and `DETECT_SCREEN_CAPTURE` (an install-time permission with no prompt; expo-screen-capture registers an Android 14+ screen-capture callback at startup and the app crashes on launch without it). Expo and library defaults the app does not use (external storage, media images, overlay windows, vibration, Wi-Fi state, microphone, Play install referrer) are removed with `android.blockedPermissions`.
+The release APK asks only for `CAMERA` (QR scanning; requested when you first scan), `USE_BIOMETRIC` / `USE_FINGERPRINT` (unlock and signing), `INTERNET` and `ACCESS_NETWORK_STATE` (RPC and WalletConnect connectivity), and `DETECT_SCREEN_CAPTURE` (an install-time permission with no prompt; expo-screen-capture registers an Android 14+ screen-capture callback at startup and the app crashes on launch without it). `VIBRATE` (install-time, no prompt) powers haptic press feedback via expo-haptics. Expo and library defaults the app does not use (external storage, media images, overlay windows, Wi-Fi state, microphone, Play install referrer) are removed with `android.blockedPermissions`.
 
 If TREX hits a JavaScript error it cannot recover from, it shows an error screen with the message instead of closing; please screenshot it when reporting a problem. Release builds currently ship without R8 minification to rule out stripped classes. The manifest also contains AndroidX's internal, app-private `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`.
 
@@ -78,3 +80,13 @@ Every qualifying push to `main` triggers the GitHub Actions workflow **TREX Wall
 - The camera permission dialog briefly backgrounds the app on Android. TREX gives TREX-opened permission dialogs and the settings screen a one-shot 30-second grace before locking; any other trip out of the app locks immediately.
 
 See [SECURITY.md](SECURITY.md) and [ROADMAP.md](ROADMAP.md).
+
+## Motion and feel
+
+- Every touchable is `AnimatedPressable` (`src/components/AnimatedPressable.tsx`): a react-native-gesture-handler tap whose spring scale and dim run as Reanimated worklets on the UI thread the moment a finger lands, plus an expo-haptics tap on release.
+- Navigation is a `@react-navigation/stack` with the iOS-style slide-in from the right, the previous screen parallaxing back, and edge swipe-back on Android. Tabs use a custom tab bar with a spring-sliding amber indicator and scaling icons.
+- Sheets (network, account, review, transfer confirm, request approval) are `@gorhom/bottom-sheet` modals: spring open, drag down or tap the fading backdrop to close.
+- Balances and lists show shimmer skeletons while loading, support pull-to-refresh, the balance counts up, and rows enter with a staggered fade-and-lift.
+- Slow buttons morph into a compact spinner pill the instant they're tapped; heavy work (key generation, HD derivation) waits for that frame to paint (`src/utils/defer.ts`). Unlocking no longer derives keys at all: it only passes the biometric gate.
+- All of it honours Android's "Remove animations" setting (Reanimated `ReduceMotion.System`, stack transitions switch off).
+

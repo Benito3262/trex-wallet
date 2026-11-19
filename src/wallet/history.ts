@@ -1,6 +1,6 @@
 import * as SQLite from "expo-sqlite";
-import { JsonRpcProvider } from "ethers";
-import { NETWORKS, PUBLIC_RPC, rpcUrlFor } from "../config/networks";
+import { NETWORKS } from "../config/networks";
+import { withProvider } from "./rpcPool";
 
 export type WalletTransaction = {
   hash: string;
@@ -84,14 +84,9 @@ export async function refreshRecentTransactions(walletAddress?: string): Promise
   for (const tx of items) {
     if (tx.status !== "submitted") continue;
     const network = NETWORKS.find((item) => item.chainId === tx.chainId);
-    const rpc = PUBLIC_RPC[tx.chainId] ? rpcUrlFor(tx.chainId) : null;
-    if (!network || !rpc) continue;
-
-    const provider = new JsonRpcProvider(rpc, tx.chainId, { staticNetwork: true });
+    if (!network) continue;
     try {
-      const chainHex = await provider.send("eth_chainId", []);
-      if (Number(BigInt(chainHex)) !== tx.chainId) continue;
-      const receipt = await provider.getTransactionReceipt(tx.hash);
+      const receipt = await withProvider(network, (provider) => provider.getTransactionReceipt(tx.hash));
       if (receipt) {
         const status = receipt.status === 1 ? "included" : "failed";
         const db = await database();
@@ -102,9 +97,7 @@ export async function refreshRecentTransactions(walletAddress?: string): Promise
         );
       }
     } catch {
-      // Keep the prior submitted state when an RPC provider is unavailable.
-    } finally {
-      provider.destroy();
+      // Keep the prior submitted state when every RPC endpoint is unavailable.
     }
   }
   return getRecentTransactions(50, walletAddress);

@@ -160,8 +160,8 @@ describe("review checks", () => {
 
   it("blocks mainnet signing with a clear message", () => {
     const review = reviewTransaction({ ...base, activeChainId: 1 });
-    expect(review.blockedReason).toMatch(/Mainnet signing is disabled/);
-    expect(reviewMessage({ activeChainId: 8453, displayMessage: "hi", rawMessage: "hi", origin: "https://a.example" }).blockedReason).toMatch(/Mainnet/);
+    expect(review.blockedReason).toMatch(/only signs on test networks/);
+    expect(reviewMessage({ activeChainId: 8453, displayMessage: "hi", rawMessage: "hi", origin: "https://a.example" }).blockedReason).toMatch(/mainnet/i);
   });
 
   it("blocks chain mismatches and insufficient funds", () => {

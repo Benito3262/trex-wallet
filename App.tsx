@@ -1,724 +1,104 @@
 // WalletConnect polyfills (TextEncoder, crypto.getRandomValues, URL, Buffer) must load before anything else.
 import "@walletconnect/react-native-compat";
 import "react-native-get-random-values";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  ActivityIndicator,
-  Animated,
-  Linking,
-  Modal,
-  Alert,
-  AppState,
-  StyleSheet,
-  Text,
-  View
-} from "react-native";
+import React from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { DEFAULT_NETWORK, NETWORKS } from "./src/config/networks";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from "react-native-safe-area-context";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import Animated, { FadeIn, FadeOut, ReduceMotion, ReducedMotionConfig } from "react-native-reanimated";
 import { theme } from "./src/theme";
 import { WalletOnboarding } from "./src/components/WalletOnboarding";
 import { WalletUnlock } from "./src/components/WalletUnlock";
-import { WalletManager } from "./src/components/WalletManager";
-import { DappBrowser } from "./src/components/DappBrowser";
-import { loadRegistry, setActiveAccount, subscribeRegistry } from "./src/wallet/vault";
-import { activeAccount, type AccountRegistry } from "./src/wallet/accounts";
 import { BrandLogo, Wordmark } from "./src/components/brand";
-import { BottomSheet, FadeIn } from "./src/components/motion";
 import { ErrorBoundary } from "./src/components/ErrorBoundary";
 import { RequestHost } from "./src/components/RequestHost";
-import { OpenApprovals } from "./src/components/OpenApprovals";
-import { ConnectedSites } from "./src/components/ConnectedSites";
 import { approvalQueue } from "./src/dapp/approvalCenter";
-import { registerChainSwitcher, setWalletState } from "./src/dapp/walletState";
-import { WalletConnectScreen } from "./src/components/WalletConnectScreen";
-import { disconnectOriginSessions, hasUsedWalletConnect, initWalletConnect } from "./src/walletconnect/service";
-import { pairingUriFromDeepLink } from "./src/walletconnect/namespaces";
-import { appLock } from "./src/wallet/appLock";
-import { getNativeBalance } from "./src/wallet/balances";
-import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
-import { fetchAddressActivity, fetchAddressTokenBalances, type ExplorerActivity } from "./src/wallet/explorerActivity";
-import { ReceiveAddress } from "./src/components/ReceiveAddress";
-import { SendNative } from "./src/components/SendNative";
-import { AddToken } from "./src/components/AddToken";
-import { SendToken } from "./src/components/SendToken";
-import { CalldataAnalyzer } from "./src/components/CalldataAnalyzer";
-import { getCustomTokens, removeCustomToken } from "./src/wallet/tokenStore";
-import { inspectErc20Token } from "./src/wallet/tokens";
-import type { TokenBalance, TokenMetadata } from "./src/wallet/tokens";
+import { WalletProvider, useWallet } from "./src/app/WalletContext";
+import { RootNavigator } from "./src/app/RootNavigator";
+import { styles } from "./src/app/homeStyles";
 
-type Tab = "Wallet" | "Activity" | "Security" | "Browser";
-
-function ActionTile({ icon, label, onPress, disabled = false }: {
-  icon: string;
-  label: string;
-  onPress?: () => void;
-  disabled?: boolean;
-}) {
-  const pressScale = useRef(new Animated.Value(1)).current;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      disabled={disabled}
-      onPress={onPress}
-      onPressIn={() => { if (!disabled) Animated.spring(pressScale, { toValue: 0.94, useNativeDriver: true, speed: 35, bounciness: 5 }).start(); }}
-      onPressOut={() => Animated.spring(pressScale, { toValue: 1, useNativeDriver: true, speed: 28, bounciness: 7 }).start()}
-      style={({ pressed }) => [styles.actionTile, pressed && !disabled && styles.pressed, disabled && styles.disabled]}
-    >
-      <Animated.View style={{ alignItems: "center", gap: 8, transform: [{ scale: pressScale }] }}>
-        <Text style={styles.actionIcon}>{icon}</Text>
-        <Text style={styles.actionLabel}>{label}</Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
+// Render on the first frame instead of waiting for a native insets measurement.
+const FALLBACK_METRICS = { frame: { x: 0, y: 0, width: 0, height: 0 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 
 export default function App() {
   return (
-    <ErrorBoundary label="TREX Wallet" onError={() => approvalQueue.cancelAll()}>
-      <WalletApp />
-      <ErrorBoundary label="Request review" onError={() => approvalQueue.cancelAll()}>
-        <RequestHost />
-      </ErrorBoundary>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={local.root}>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics ?? FALLBACK_METRICS}>
+        <ReducedMotionConfig mode={ReduceMotion.System} />
+        <BottomSheetModalProvider>
+          <StatusBar style="light" />
+          <ErrorBoundary label="TREX Wallet" onError={() => approvalQueue.cancelAll()}>
+            <WalletProvider>
+              <Gate />
+            </WalletProvider>
+            <ErrorBoundary label="Request review" onError={() => approvalQueue.cancelAll()}>
+              <RequestHost />
+            </ErrorBoundary>
+          </ErrorBoundary>
+        </BottomSheetModalProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
-function WalletApp() {
-  const [networkIndex, setNetworkIndex] = useState(
-    NETWORKS.findIndex((network) => network.chainId === DEFAULT_NETWORK.chainId)
-  );
-  const [balanceHidden, setBalanceHidden] = useState(true);
-  const [tab, setTab] = useState<Tab>("Wallet");
-  const [setupOpen, setSetupOpen] = useState(false);
-  const [restoreMode, setRestoreMode] = useState(false);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [walletUnlocked, setWalletUnlocked] = useState(false);
-  const [booting, setBooting] = useState(true);
-  const [nativeBalance, setNativeBalance] = useState<string | null>(null);
-  const [balanceLoading, setBalanceLoading] = useState(false);
-  const [receiveOpen, setReceiveOpen] = useState(false);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [chainActivity, setChainActivity] = useState<ExplorerActivity[]>([]);
-  const [activityLoading, setActivityLoading] = useState(false);
-  const [activityError, setActivityError] = useState("");
-  const [sendOpen, setSendOpen] = useState(false);
-  const [addTokenOpen, setAddTokenOpen] = useState(false);
-  const [tokenRefreshKey, setTokenRefreshKey] = useState(0);
-  const [customTokens, setCustomTokens] = useState<(TokenBalance & { discovered?: boolean })[]>([]);
-  const [selectedToken, setSelectedToken] = useState<TokenMetadata | null>(null);
-  const [networkPickerOpen, setNetworkPickerOpen] = useState(false);
-  const [walletManagerOpen, setWalletManagerOpen] = useState(false);
-  const [addWalletOpen, setAddWalletOpen] = useState(false);
-  const [switcherOpen, setSwitcherOpen] = useState(false);
-  const [approvalsOpen, setApprovalsOpen] = useState(false);
-  const [sitesOpen, setSitesOpen] = useState(false);
-  const [wcOpen, setWcOpen] = useState(false);
-  const [wcUri, setWcUri] = useState<string | null>(null);
-  const [registry, setRegistry] = useState<AccountRegistry | null>(null);
-  const currentAccount = registry ? activeAccount(registry) : undefined;
-  const screenMotion = useRef(new Animated.Value(1)).current;
-  const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
+const crossfade = { entering: FadeIn.duration(260), exiting: FadeOut.duration(180) };
 
-  useEffect(() => {
-    screenMotion.setValue(0);
-    Animated.timing(screenMotion, { toValue: 1, duration: 260, useNativeDriver: true }).start();
-  }, [tab, screenMotion]);
-
-  // Keep dApp sessions (browser + WalletConnect) in sync with the active account and network.
-  useEffect(() => {
-    setWalletState({ accountId: currentAccount?.id ?? null, address: walletAddress, network, unlocked: walletUnlocked && !!walletAddress });
-  }, [currentAccount?.id, walletAddress, network, walletUnlocked]);
-
-  // WalletConnect starts lazily: when the WalletConnect screen opens, or after unlock only if
-  // this device has paired before (so restored sessions can deliver requests). Deferred and
-  // fully caught so it can never block or crash startup.
-  useEffect(() => {
-    if (!walletUnlocked || !walletAddress) return;
-    const timer = setTimeout(() => {
-      hasUsedWalletConnect()
-        .then((used) => (used ? initWalletConnect() : undefined))
-        .catch(() => undefined);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [walletUnlocked, walletAddress]);
-
-  // trexwallet://wc?uri=wc:... deep links open the WalletConnect screen with the link prefilled.
-  useEffect(() => {
-    const open = (url: string | null | undefined) => {
-      const uri = url ? pairingUriFromDeepLink(url) : null;
-      if (uri) { setWcUri(uri); setWcOpen(true); }
-    };
-    Linking.getInitialURL().then(open).catch(() => undefined);
-    const subscription = Linking.addEventListener("url", ({ url }) => open(url));
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => registerChainSwitcher((chainId) => {
-    const index = NETWORKS.findIndex((item) => item.chainId === chainId);
-    if (index < 0) throw new Error("Unsupported network.");
-    setNetworkIndex(index);
-  }), []);
-
-  useEffect(() => {
-    const lock = () => {
-      setWalletUnlocked(false);
-      // Locking must also cancel anything waiting for approval.
-      approvalQueue.cancelAll();
-    };
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") {
-        if (appLock.onActive()) lock();
-      } else if (appLock.onBackground()) {
-        lock();
-      }
-    });
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    if (!walletAddress) { setNativeBalance(null); return; }
-    let active = true;
-    setBalanceLoading(true);
-    getNativeBalance(network, walletAddress)
-      .then((value) => { if (active) setNativeBalance(value); })
-      .catch(() => { if (active) setNativeBalance(null); })
-      .finally(() => { if (active) setBalanceLoading(false); });
-    return () => { active = false; };
-  }, [walletAddress, network]);
-
-  useEffect(() => {
-    if (!walletAddress) { setCustomTokens([]); return; }
-    let active = true;
-    Promise.all([
-      getCustomTokens(network.chainId).then(async (saved) => Promise.all(saved.map(async (token) => {
-        try {
-          return { ...await inspectErc20Token(network, token.contractAddress, walletAddress), discovered: false };
-        } catch {
-          return { ...token, balance: "Unavailable", discovered: false };
-        }
-      }))),
-      fetchAddressTokenBalances(network, walletAddress).catch(() => [])
-    ]).then(([savedBalances, indexedBalances]) => {
-      if (!active) return;
-      const merged = new Map<string, TokenBalance & { discovered?: boolean }>();
-      for (const token of indexedBalances) merged.set(token.contractAddress.toLowerCase(), { ...token, discovered: true });
-      for (const token of savedBalances) merged.set(token.contractAddress.toLowerCase(), token);
-      setCustomTokens([...merged.values()].sort((a, b) => a.symbol.localeCompare(b.symbol)));
-    }).catch(() => { if (active) setCustomTokens([]); });
-    return () => { active = false; };
-  }, [walletAddress, network, tokenRefreshKey]);
-
-  useEffect(() => {
-    if (tab !== "Activity" || !walletAddress) return;
-    let active = true;
-    setActivityLoading(true);
-    setActivityError("");
-    Promise.all([
-      refreshRecentTransactions(walletAddress).then((items) => { if (active) setTransactions(items); }).catch(() => undefined),
-      fetchAddressActivity(network, walletAddress).then((items) => { if (active) setChainActivity(items); }).catch((error) => {
-        if (active) {
-          setChainActivity([]);
-          setActivityError(error instanceof Error ? error.message : "Could not load indexed activity.");
-        }
-      })
-    ]).finally(() => { if (active) setActivityLoading(false); });
-    return () => { active = false; };
-  }, [tab, walletAddress, network]);
-
-  useEffect(() => {
-    let mounted = true;
-    loadRegistry().then((loaded) => {
-      if (!mounted || !loaded) return;
-      setRegistry(loaded);
-      const address = activeAccount(loaded)?.address;
-      if (address) setWalletAddress(address);
-    }).catch(() => undefined).finally(() => { if (mounted) setBooting(false); });
-    const unsubscribe = subscribeRegistry((next) => { if (mounted) setRegistry(next); });
-    return () => { mounted = false; unsubscribe(); };
-  }, []);
+/** Splash → unlock → wallet, cross-faded so state changes never "pop". */
+function Gate() {
+  const { booting, walletAddress, walletUnlocked, setWalletAddress, setWalletUnlocked, restoreFromLock, setRestoreFromLock } = useWallet();
 
   if (booting) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <View style={styles.splash}>
-          <BrandLogo size={132} />
-          <View style={{ marginTop: 18 }}><Wordmark height={34} tagline /></View>
-          <ActivityIndicator size="small" color={theme.colors.primaryBright} style={{ marginTop: 30 }} />
-          <Text style={styles.splashStatus}>SECURING YOUR SESSION</Text>
-        </View>
-      </SafeAreaView>
+      <Animated.View key="splash" {...crossfade} style={local.fill}>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.splash}>
+            <BrandLogo size={132} />
+            <View style={{ marginTop: 18 }}><Wordmark height={34} tagline /></View>
+            <ActivityIndicator size="small" color={theme.colors.primaryBright} style={{ marginTop: 30 }} />
+            <Text style={styles.splashStatus}>SECURING YOUR SESSION</Text>
+          </View>
+        </SafeAreaView>
+      </Animated.View>
     );
   }
 
-  if (walletAddress && !walletUnlocked && !setupOpen) {
+  if (walletAddress && !walletUnlocked) {
+    if (restoreFromLock) {
+      return (
+        <Animated.View key="restore" {...crossfade} style={local.fill}>
+          <SafeAreaView style={styles.safeArea}>
+            <WalletOnboarding
+              initialMode="import"
+              purpose="restore"
+              onCancel={() => setRestoreFromLock(false)}
+              onComplete={(address) => { setWalletAddress(address); setWalletUnlocked(true); setRestoreFromLock(false); }}
+            />
+          </SafeAreaView>
+        </Animated.View>
+      );
+    }
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <WalletUnlock
-          onUnlocked={(address) => { setWalletAddress(address); setWalletUnlocked(true); }}
-          onRestore={() => { setRestoreMode(true); setSetupOpen(true); }}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  if (tab === "Browser" && walletAddress && walletUnlocked) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <DappBrowser onClose={() => setTab("Wallet")} />
-      </SafeAreaView>
-    );
-  }
-
-  if (walletManagerOpen && walletAddress) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <WalletManager
-          onBack={() => setWalletManagerOpen(false)}
-          onAddWallet={() => { setWalletManagerOpen(false); setAddWalletOpen(true); }}
-          onActiveChanged={(address) => {
-            setWalletAddress(address);
-            if (!address) { setWalletManagerOpen(false); setWalletUnlocked(false); setTab("Wallet"); }
-          }}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  if (approvalsOpen && walletAddress) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <OpenApprovals address={walletAddress} network={network} onBack={() => setApprovalsOpen(false)} />
-      </SafeAreaView>
-    );
-  }
-
-  if (wcOpen && walletAddress) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <WalletConnectScreen initialUri={wcUri} onBack={() => { setWcOpen(false); setWcUri(null); }} />
-      </SafeAreaView>
-    );
-  }
-
-  if (sitesOpen && walletAddress) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <ConnectedSites address={walletAddress} onBack={() => setSitesOpen(false)} onDisconnectWalletConnect={disconnectOriginSessions} />
-      </SafeAreaView>
-    );
-  }
-
-  if (addWalletOpen && walletAddress) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <WalletOnboarding
-          purpose="add"
-          onCancel={() => { setAddWalletOpen(false); setWalletManagerOpen(true); }}
-          onComplete={(address) => { setWalletAddress(address); setAddWalletOpen(false); setWalletManagerOpen(true); }}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  if (selectedToken && walletAddress) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <SendToken address={walletAddress} network={network} token={selectedToken} onBack={() => setSelectedToken(null)} onSent={() => { setSelectedToken(null); setTab("Activity"); }} />
-      </SafeAreaView>
-    );
-  }
-
-  if (addTokenOpen && walletAddress) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <AddToken network={network} walletAddress={walletAddress} onBack={() => setAddTokenOpen(false)} onAdded={() => { setAddTokenOpen(false); setTokenRefreshKey((value) => value + 1); }} />
-      </SafeAreaView>
-    );
-  }
-
-  if (sendOpen && walletAddress) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <SendNative address={walletAddress} network={network} onBack={() => setSendOpen(false)} onSent={() => { setSendOpen(false); setTab("Activity"); }} />
-      </SafeAreaView>
-    );
-  }
-
-  if (receiveOpen && walletAddress) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <ReceiveAddress address={walletAddress} network={network} onBack={() => setReceiveOpen(false)} />
-      </SafeAreaView>
-    );
-  }
-
-  if (setupOpen) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-        <WalletOnboarding
-          initialMode={restoreMode ? "import" : "choose"}
-          purpose={restoreMode ? "restore" : "setup"}
-          onCancel={() => { setSetupOpen(false); setRestoreMode(false); }}
-          onComplete={(address) => { setWalletAddress(address); setWalletUnlocked(true); setSetupOpen(false); setRestoreMode(false); setTab("Wallet"); }}
-        />
-      </SafeAreaView>
+      <Animated.View key="unlock" {...crossfade} style={local.fill}>
+        <SafeAreaView style={styles.safeArea}>
+          <WalletUnlock
+            onUnlocked={(address) => { setWalletAddress(address); setWalletUnlocked(true); }}
+            onRestore={() => setRestoreFromLock(true)}
+          />
+        </SafeAreaView>
+      </Animated.View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
-      <View style={styles.page}>
-      <Modal visible={networkPickerOpen} transparent animationType="fade" onRequestClose={() => setNetworkPickerOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setNetworkPickerOpen(false)}>
-          <Pressable style={styles.networkModal} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Choose network</Text>
-              <Pressable onPress={() => setNetworkPickerOpen(false)}><Text style={styles.modalClose}>CLOSE</Text></Pressable>
-            </View>
-            {NETWORKS.map((item, index) => (
-              <Pressable key={item.chainId} style={[styles.networkOption, item.chainId === network.chainId && styles.networkOptionActive]} onPress={() => { setNetworkIndex(index); setNetworkPickerOpen(false); }}>
-                <View style={styles.networkOptionCopy}>
-                  <Text style={styles.networkOptionName}>{item.name}</Text>
-                  <Text style={styles.networkOptionMeta}>Chain {item.chainId} · {item.testnet ? "TESTNET · SIGNING ON" : "MAINNET · READ ONLY"}</Text>
-                </View>
-                {item.chainId === network.chainId && <Text style={styles.networkSelected}>SELECTED</Text>}
-              </Pressable>
-            ))}
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <BottomSheet visible={switcherOpen} onClose={() => setSwitcherOpen(false)}>
-        <Text style={styles.modalTitle}>Switch account</Text>
-        <ScrollView style={{ maxHeight: 360, marginTop: 10 }}>
-          {registry?.accounts.map((account) => (
-            <Pressable
-              key={account.id}
-              style={[styles.networkOption, account.id === currentAccount?.id && styles.networkOptionActive]}
-              onPress={() => {
-                setActiveAccount(account.id).then((next) => setWalletAddress(activeAccount(next)?.address ?? null)).catch(() => undefined);
-                setSwitcherOpen(false);
-              }}
-            >
-              <View style={styles.networkOptionCopy}>
-                <Text style={styles.networkOptionName}>{account.name}</Text>
-                <Text style={styles.networkOptionMeta}>{account.address.slice(0, 10)}…{account.address.slice(-6)} · {account.hdIndex !== null ? `HD #${account.hdIndex}` : "Imported key"}</Text>
-              </View>
-              {account.id === currentAccount?.id && <Text style={styles.networkSelected}>ACTIVE</Text>}
-            </Pressable>
-          ))}
-        </ScrollView>
-        <Pressable style={styles.sheetButton} onPress={() => { setSwitcherOpen(false); setWalletManagerOpen(true); }}>
-          <Text style={styles.sheetButtonText}>MANAGE, ADD OR REMOVE ACCOUNTS</Text>
-        </Pressable>
-      </BottomSheet>
-
-        <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <BrandLogo size={34} glow={false} />
-            <View>
-              <Wordmark height={22} />
-              <Text style={styles.brandCaption}>YOUR WEB3 WALLET</Text>
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-          <Pressable style={styles.accountButton} onPress={() => setSwitcherOpen(true)} disabled={!walletAddress} accessibilityLabel="Switch account">
-            <Text style={styles.accountButtonText} numberOfLines={1}>{currentAccount ? currentAccount.name.toUpperCase() : "ACCOUNT"} ⌄</Text>
-          </Pressable>
-          <Pressable style={styles.networkPill} onPress={() => setNetworkPickerOpen(true)}>
-            <View style={styles.networkDot} />
-            <Text style={styles.networkText}>{network.shortName}</Text>
-            <Text style={styles.chevron}>⌄</Text>
-          </Pressable>
-          </View>
-        </View>
-
-        <Animated.View style={{ flex: 1, opacity: screenMotion, transform: [{ translateY: screenMotion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {tab === "Wallet" && (
-            <>
-              <View style={styles.balanceCard}>
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.eyebrow}>NATIVE BALANCE</Text>
-                  <Pressable onPress={() => setBalanceHidden(!balanceHidden)} accessibilityLabel={balanceHidden ? "Show balance" : "Hide balance"}>
-                    <Text style={styles.eye}>{balanceHidden ? "◉" : "◎"}</Text>
-                  </Pressable>
-                </View>
-                <Text style={styles.balance}>{balanceHidden ? "••••••••" : walletAddress ? balanceLoading ? "Loading..." : nativeBalance ? `${nativeBalance} ${network.symbol}` : "Unavailable" : "0.00"}</Text>
-                <Text style={styles.balanceFootnote}>{walletAddress ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}` : "No wallet connected yet"}</Text>
-                <View style={styles.cardDivider} />
-                <View style={styles.addressRow}>
-                  <View>
-                    <Text style={styles.eyebrow}>ACTIVE NETWORK</Text>
-                    <Text style={styles.networkName}>{network.name}</Text>
-                  </View>
-                  <View style={styles.chainBadge}><Text style={styles.chainBadgeText}>CHAIN {network.chainId}</Text></View>
-                </View>
-              </View>
-
-              {walletAddress && !walletUnlocked && <WalletUnlock onUnlocked={(address) => { setWalletAddress(address); setWalletUnlocked(true); }} onRestore={() => { setRestoreMode(true); setSetupOpen(true); }} />}
-
-              <View style={styles.actions}>
-                <ActionTile icon="＋" label={walletAddress ? (walletUnlocked ? "Wallet ready" : "Unlock") : "Create wallet"} onPress={() => walletAddress ? undefined : setSetupOpen(true)} disabled={!!walletAddress} />
-                <ActionTile icon="↗" label={network.testnet ? "Send" : "Testnet only"} onPress={() => setSendOpen(true)} disabled={!walletAddress || !network.testnet} />
-                <ActionTile icon="↙" label="Receive" onPress={() => setReceiveOpen(true)} disabled={!walletAddress} />
-                <ActionTile icon="⇄" label="Connect" onPress={() => setWcOpen(true)} disabled={!walletAddress || !walletUnlocked} />
-              </View>
-
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Assets</Text>
-                <Pressable onPress={() => setAddTokenOpen(true)} disabled={!walletAddress}>
-                  <Text style={styles.sectionMeta}>{walletAddress ? "+ ADD TOKEN" : network.name}</Text>
-                </Pressable>
-              </View>
-              {customTokens.length === 0 ? (
-                <View style={styles.emptyCard}>
-                  <View style={styles.emptyIcon}><Text style={styles.emptyIconText}>◇</Text></View>
-                  <Text style={styles.emptyTitle}>{walletAddress ? "No token balances found" : "Your assets will appear here"}</Text>
-                  <Text style={styles.emptyText}>{walletAddress ? "TREX checks indexed token balances automatically. You can still add a token contract manually if an asset is not indexed." : "Create or import a wallet to see balances and tokens across your EVM networks."}</Text>
-                </View>
-              ) : customTokens.map((token) => (
-                <View key={token.contractAddress} style={styles.tokenRow}>
-                  <Pressable style={styles.tokenRowBody} disabled={!network.testnet} onPress={() => setSelectedToken(token)}>
-                    <View style={styles.tokenSymbolBubble}><Text style={styles.tokenSymbolText}>{token.symbol.slice(0, 3).toUpperCase()}</Text></View>
-                    <View style={styles.tokenDetails}>
-                      <Text style={styles.tokenNameText}>{token.name}</Text>
-                      <Text style={styles.tokenMetaText}>{token.symbol} · {token.discovered ? "Auto-discovered · Unverified" : "Manually added · Unverified"}</Text>
-                    </View>
-                    <Text style={styles.tokenBalanceText}>{token.balance}</Text>
-                  </Pressable>
-                  {!token.discovered && <Pressable onPress={() => Alert.alert("Remove token?", `Remove ${token.symbol} from this device's asset list?`, [{ text: "Cancel", style: "cancel" }, { text: "Remove", style: "destructive", onPress: () => { removeCustomToken(network.chainId, token.contractAddress).then(() => setTokenRefreshKey((value) => value + 1)).catch(() => undefined); } }])}>
-                    <Text style={styles.removeToken}>×</Text>
-                  </Pressable>}
-                </View>
-              ))}
-
-              <View style={styles.securityBanner}>
-                <View style={styles.shield}><Text style={styles.shieldText}>✦</Text></View>
-                <View style={styles.securityCopy}>
-                  <Text style={styles.securityTitle}>Security comes first</Text>
-                  <Text style={styles.securityText}>Native testnet transfers show the recipient, amount and gas estimate before signing.</Text>
-                </View>
-              </View>
-            </>
-          )}
-
-          {tab === "Activity" && (
-            <View style={styles.securityPage}>
-              <Text style={styles.sectionTitle}>Transaction activity</Text>
-              <Text style={styles.securityIntro}>On-chain activity for {walletAddress ? `${walletAddress.slice(0, 8)}…${walletAddress.slice(-6)}` : "this wallet"} on {network.name}. Incoming and outgoing native transfers and ERC-20 transfers are loaded from the chain explorer.</Text>
-              {activityLoading && <View style={styles.activityLoading}><ActivityIndicator color={theme.colors.primaryBright} /><Text style={styles.activityLoadingText}>Syncing on-chain activity…</Text></View>}
-              {!!activityError && <View style={styles.activityNotice}><Text style={styles.activityNoticeText}>{activityError} Your locally submitted transactions are still available below.</Text></View>}
-              {!activityLoading && chainActivity.length === 0 && transactions.length === 0 ? (
-                <View style={styles.emptyCard}>
-                  <Text style={styles.emptyTitle}>No indexed activity found</Text>
-                  <Text style={styles.emptyText}>{activityError || "Received and sent transfers will appear here when the explorer indexes them."}</Text>
-                </View>
-              ) : (
-                <>
-                  {chainActivity.map((tx, index) => (
-                    <View key={`${tx.hash}:${tx.kind}:${tx.tokenAddress ?? index}`} style={styles.transactionRow}>
-                      <View style={[styles.transactionIcon, tx.direction === "received" && styles.receivedIcon]}><Text style={styles.transactionIconText}>{tx.direction === "received" ? "↙" : "↗"}</Text></View>
-                      <View style={styles.transactionCopy}>
-                        <Text style={styles.transactionTitle}>{tx.direction === "received" ? "Received" : "Sent"} {tx.amount} {tx.symbol}</Text>
-                        <Text style={styles.transactionMeta}>{tx.kind === "token" ? "Token transfer" : "Native transfer"} · {tx.status === "failed" ? "Failed" : "Confirmed"} · {new Date(tx.timestamp).toLocaleString()}</Text>
-                        <Pressable onPress={() => Linking.openURL(`${network.explorer}/tx/${tx.hash}`).catch(() => undefined)}><Text selectable style={styles.transactionHash}>{tx.hash.slice(0, 12)}…{tx.hash.slice(-8)} · VIEW</Text></Pressable>
-                      </View>
-                    </View>
-                  ))}
-                  {transactions.filter((tx) => !chainActivity.some((item) => item.hash.toLowerCase() === tx.hash.toLowerCase())).map((tx) => (
-                    <View key={tx.hash} style={styles.transactionRow}>
-                      <View style={styles.transactionIcon}><Text style={styles.transactionIconText}>↗</Text></View>
-                      <View style={styles.transactionCopy}>
-                        <Text style={styles.transactionTitle}>Sent {tx.amount} {tx.symbol}</Text>
-                        <Text style={styles.transactionMeta}>{tx.networkName} · {tx.status === "included" ? "Included in block" : tx.status === "failed" ? "Failed" : "Submitted"}</Text>
-                        <Pressable onPress={() => { const chain = NETWORKS.find((item) => item.chainId === tx.chainId); if (chain) Linking.openURL(`${chain.explorer}/tx/${tx.hash}`).catch(() => undefined); }}><Text selectable style={styles.transactionHash}>{tx.hash.slice(0, 12)}…{tx.hash.slice(-8)} · VIEW</Text></Pressable>
-                      </View>
-                    </View>
-                  ))}
-                </>
-              )}
-            </View>
-          )}
-
-          {tab === "Security" && (
-            <View style={styles.securityPage}>
-              <Text style={styles.sectionTitle}>TREX protection</Text>
-              <Text style={styles.securityIntro}>Every site request opens a review sheet with decoded calldata, a best-effort simulation and risk checks, then asks for biometrics. Checks can miss things; they are not a guarantee.</Text>
-              <View style={styles.securityLinks}>
-                <Pressable style={styles.securityLink} onPress={() => setApprovalsOpen(true)} disabled={!walletAddress}>
-                  <Text style={styles.securityLinkTitle}>Open approvals</Text>
-                  <Text style={styles.securityItemText}>See and revoke allowances granted through TREX.</Text>
-                </Pressable>
-                <Pressable style={styles.securityLink} onPress={() => setSitesOpen(true)} disabled={!walletAddress}>
-                  <Text style={styles.securityLinkTitle}>Connected sites</Text>
-                  <Text style={styles.securityItemText}>Review and disconnect dApps.</Text>
-                </Pressable>
-              </View>
-              <Pressable style={[styles.securityLink, { marginBottom: 8 }]} onPress={() => setWcOpen(true)} disabled={!walletAddress}>
-                <Text style={styles.securityLinkTitle}>WalletConnect</Text>
-                <Text style={styles.securityItemText}>Pair with a dApp on another device by pasting its wc: link.</Text>
-              </Pressable>
-              {[
-                ["01", "Native transfer preflight", "Check address syntax, chain ID, balance and estimated gas.", "TESTNET"],
-                ["02", "Encrypted local vault", "Recovery phrase protected by Android secure storage and biometrics.", "ACTIVE"],
-                ["03", "Recovery screen privacy", "Block screenshots and screen recording while words are visible.", "ACTIVE"],
-                ["04", "Request review", "Decodes approvals, setApprovalForAll and Permit/Permit2 signatures, simulates with eth_call, checks balance plus fee, contract vs EOA, first interactions and chain mismatches.", "TESTNET"],
-                ["05", "Self-cleaning approvals", "Offers an exact amount instead of unlimited approvals, tracks what you granted and lets you revoke in one tap.", "TESTNET"],
-                ["06", "Mainnet signing", "Disabled in this early test build. Mainnet is read-only and connect-only.", "LOCKED"],
-                ["07", "Calldata decoder", "Paste calldata below to inspect it offline.", "ACTIVE"]
-              ].map(([number, title, description, status]) => (
-                <View key={number} style={styles.securityItem}>
-                  <Text style={styles.securityNumber}>{number}</Text>
-                  <View style={styles.securityItemCopy}>
-                    <Text style={styles.securityItemTitle}>{title}</Text>
-                    <Text style={styles.securityItemText}>{description}</Text>
-                  </View>
-                  <Text style={styles.pending}>{status}</Text>
-                </View>
-              ))}
-              <CalldataAnalyzer />
-            </View>
-          )}
-        </ScrollView>
-        </Animated.View>
-
-        <View style={styles.bottomNav}>
-          {(["Wallet", "Activity", "Security", "Browser"] as Tab[]).map((item) => (
-            <Pressable key={item} style={styles.navItem} onPress={() => setTab(item)}>
-              <Text style={[styles.navIcon, tab === item && styles.navActive]}>{item === "Wallet" ? "◇" : item === "Activity" ? "↻" : item === "Security" ? "⬡" : "◎"}</Text>
-              <Text style={[styles.navLabel, tab === item && styles.navActive]}>{item}</Text>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.disclaimer}>EARLY TEST BUILD · NOT AUDITED · TESTNET FUNDS ONLY</Text>
-      </View>
-    </SafeAreaView>
+    <Animated.View key="app" entering={FadeIn.duration(320)} style={local.fill}>
+      <RootNavigator />
+    </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: theme.colors.background },
-  splash: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.background },
-  splashMark: { width: 76, height: 76, borderRadius: 25, backgroundColor: "#32190B", borderWidth: 1, borderColor: "#D97719", alignItems: "center", justifyContent: "center" },
-  splashMarkText: { color: "#FFE4BD", fontSize: 48, fontWeight: "900" },
-  splashBrand: { color: theme.colors.text, fontSize: 32, fontWeight: "900", letterSpacing: 4, marginTop: 18 },
-  splashCaption: { color: theme.colors.muted, fontSize: 9, letterSpacing: 2.4, marginTop: 3 },
-  splashStatus: { color: theme.colors.muted, fontSize: 9, letterSpacing: 1.4, marginTop: 12 },
-  page: { flex: 1, backgroundColor: theme.colors.background },
-  header: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  brand: { color: theme.colors.text, fontSize: 29, fontWeight: "900", letterSpacing: 2.2 },
-  brandAccent: { color: theme.colors.primaryBright },
-  brandCaption: { color: theme.colors.muted, fontSize: 8, fontWeight: "700", letterSpacing: 2.1, marginTop: -2 },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  brandRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  sheetButton: { backgroundColor: theme.colors.primary, borderRadius: 14, alignItems: "center", padding: 14, marginTop: 14 },
-  sheetButtonText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
-  accountButton: { maxWidth: 130, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 30, paddingVertical: 10, paddingHorizontal: 11 },
-  accountButtonText: { color: theme.colors.primaryBright, fontSize: 8, fontWeight: "900", letterSpacing: 0.8 },
-  networkPill: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 30, paddingVertical: 10, paddingHorizontal: 13 },
-  networkDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: theme.colors.success },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", justifyContent: "center", padding: 20 },
-  networkModal: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 22, padding: 18, maxHeight: "82%" },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  modalTitle: { color: theme.colors.text, fontSize: 17, fontWeight: "900" },
-  modalClose: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
-  networkOption: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: theme.colors.border, borderRadius: 10, paddingHorizontal: 8 },
-  networkOptionActive: { backgroundColor: "#3A1D0C" },
-  networkOptionCopy: { flex: 1 },
-  networkOptionName: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
-  networkOptionMeta: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },
-  networkSelected: { color: theme.colors.primaryBright, fontSize: 8, fontWeight: "900" },
-  networkText: { color: theme.colors.text, fontSize: 12, fontWeight: "700" },
-  chevron: { color: theme.colors.muted, fontSize: 16, marginTop: -4 },
-  content: { paddingHorizontal: 20, paddingBottom: 18 },
-  balanceCard: { backgroundColor: theme.colors.surface, borderRadius: 25, padding: 22, borderWidth: 1, borderColor: theme.colors.border },
-  cardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  eyebrow: { color: theme.colors.muted, fontSize: 9, fontWeight: "800", letterSpacing: 1.6 },
-  eye: { color: theme.colors.primaryBright, fontSize: 19 },
-  balance: { color: theme.colors.text, fontSize: 36, fontWeight: "800", letterSpacing: 1, marginTop: 13 },
-  balanceFootnote: { color: theme.colors.muted, fontSize: 11, marginTop: 5 },
-  cardDivider: { height: 1, backgroundColor: theme.colors.border, marginVertical: 20 },
-  addressRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  networkName: { color: theme.colors.text, fontSize: 14, fontWeight: "700", marginTop: 6 },
-  chainBadge: { backgroundColor: "#3A1D0C", paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 },
-  chainBadgeText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "800", letterSpacing: 1 },
-  actions: { flexDirection: "row", gap: 10, marginTop: 18 },
-  actionTile: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 16, paddingVertical: 15, gap: 8 },
-  pressed: { opacity: 0.7 },
-  disabled: { opacity: 0.42 },
-  actionIcon: { color: theme.colors.primaryBright, fontSize: 22, fontWeight: "500" },
-  actionLabel: { color: theme.colors.text, fontSize: 9, fontWeight: "700" },
-  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 30, marginBottom: 13 },
-  sectionTitle: { color: theme.colors.text, fontSize: 18, fontWeight: "800" },
-  sectionMeta: { color: theme.colors.muted, fontSize: 10 },
-  emptyCard: { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 20, padding: 23, alignItems: "center" },
-  emptyIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: "#3A1D0C", alignItems: "center", justifyContent: "center", marginBottom: 13 },
-  emptyIconText: { color: theme.colors.primaryBright, fontSize: 26 },
-  emptyTitle: { color: theme.colors.text, fontSize: 14, fontWeight: "800", textAlign: "center" },
-  emptyText: { color: theme.colors.muted, fontSize: 11, lineHeight: 18, textAlign: "center", marginTop: 7, maxWidth: 270 },
-  securityBanner: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 17, backgroundColor: "#211006", borderRadius: 17, padding: 15, borderWidth: 1, borderColor: "#6B3B17" },
-  shield: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#51280D", alignItems: "center", justifyContent: "center" },
-  shieldText: { color: theme.colors.primaryBright, fontSize: 18 },
-  securityCopy: { flex: 1 },
-  securityTitle: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
-  securityText: { color: theme.colors.muted, fontSize: 10, marginTop: 4 },
-  tabEmpty: { flex: 1, minHeight: 400, alignItems: "center", justifyContent: "center", paddingHorizontal: 25 },
-  tabEmptyIcon: { color: theme.colors.primaryBright, fontSize: 40, marginBottom: 14 },
-  securityPage: { paddingTop: 12 },
-  securityIntro: { color: theme.colors.muted, fontSize: 12, lineHeight: 19, marginTop: 8, marginBottom: 20 },
-  securityLinks: { flexDirection: "row", gap: 10, marginBottom: 6 },
-  securityLink: { flex: 1, backgroundColor: theme.colors.surface, borderColor: theme.colors.primary, borderWidth: 1, borderRadius: 16, padding: 13 },
-  securityLinkTitle: { color: theme.colors.primaryBright, fontSize: 12, fontWeight: "900" },
-  securityItem: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 17, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  securityNumber: { color: theme.colors.primaryBright, fontSize: 12, fontWeight: "900" },
-  securityItemCopy: { flex: 1 },
-  securityItemTitle: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
-  securityItemText: { color: theme.colors.muted, fontSize: 10, marginTop: 4 },
-  pending: { color: theme.colors.warning, fontSize: 8, fontWeight: "900", letterSpacing: 0.6 },
-  bottomNav: { flexDirection: "row", justifyContent: "space-around", paddingTop: 13, paddingBottom: 8, borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.background },
-  navItem: { alignItems: "center", gap: 4, minWidth: 70 },
-  navIcon: { color: theme.colors.muted, fontSize: 19 },
-  navLabel: { color: theme.colors.muted, fontSize: 9, fontWeight: "700" },
-  navActive: { color: theme.colors.primaryBright },
-  tokenRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  tokenRowBody: { flex: 1, flexDirection: "row", alignItems: "center", gap: 11 },
-  removeToken: { color: theme.colors.muted, fontSize: 20, paddingHorizontal: 8, paddingVertical: 4 },
-  tokenSymbolBubble: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#3A1D0C", alignItems: "center", justifyContent: "center" },
-  tokenSymbolText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900" },
-  tokenDetails: { flex: 1 },
-  tokenNameText: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
-  tokenMetaText: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },
-  tokenBalanceText: { color: theme.colors.text, fontSize: 11, fontWeight: "700" },
-  transactionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  transactionIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#3A1D0C", alignItems: "center", justifyContent: "center" },
-  transactionIconText: { color: theme.colors.primaryBright, fontSize: 17 },
-  receivedIcon: { backgroundColor: "#17372F", borderColor: "#286B56", borderWidth: 1 },
-  activityLoading: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 18 },
-  activityLoadingText: { color: theme.colors.muted, fontSize: 11 },
-  activityNotice: { backgroundColor: "#2B2115", borderColor: "#6A4B24", borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 },
-  activityNoticeText: { color: theme.colors.warning, fontSize: 10, lineHeight: 16 },
-  transactionCopy: { flex: 1 },
-  transactionTitle: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
-  transactionMeta: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },
-  transactionHash: { color: theme.colors.primaryBright, fontSize: 9, marginTop: 4 },
-  disclaimer: { color: "#8F6B4B", fontSize: 8, textAlign: "center", letterSpacing: 1.1, paddingBottom: 5, paddingTop: 3 }
+const local = StyleSheet.create({
+  root: { flex: 1, backgroundColor: theme.colors.background },
+  fill: { flex: 1, backgroundColor: theme.colors.background }
 });

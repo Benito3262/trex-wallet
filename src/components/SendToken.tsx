@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import { ScrollView, Text } from "react-native";
 import type { EvmNetwork } from "../config/networks";
 import { unlockAccount } from "../wallet/vault";
+import { afterPaint } from "../utils/defer";
 import { recordTransaction } from "../wallet/history";
 import { prepareErc20Transfer, sendErc20Transfer } from "../wallet/erc20Transactions";
 import type { Erc20TransferPreview } from "../wallet/erc20Transactions";
 import type { TokenMetadata } from "../wallet/tokens";
 import { parseRecipientQr, recipientWarnings } from "../scan/qr";
-import { BottomSheet, FadeIn } from "./motion";
+import { BottomSheet, FadeIn, SheetScrollView, useLingering } from "./motion";
 import { QrScanner } from "./QrScanner";
 import { AddressField, Card, Detail, Disclaimer, ErrorText, Field, FieldLabel, GhostButton, PrimaryButton, ScreenHeader, WarningPanel, ui } from "./ui";
 
@@ -21,6 +22,7 @@ export function SendToken({ address, network, token, onBack, onSent }: {
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [preview, setPreview] = useState<Erc20TransferPreview | null>(null);
+  const shownPreview = useLingering(preview);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [scanning, setScanning] = useState(false);
@@ -40,8 +42,10 @@ export function SendToken({ address, network, token, onBack, onSent }: {
   }
 
   async function confirmAndSend() {
+    if (busy) return;
     setBusy(true);
     setError("");
+    await afterPaint();
     try {
       const { signer: wallet } = await unlockAccount(undefined, "Authenticate to sign this transfer");
       if (wallet.address.toLowerCase() !== address.toLowerCase()) throw new Error("The active account changed. Reopen this screen and try again.");
@@ -98,16 +102,16 @@ export function SendToken({ address, network, token, onBack, onSent }: {
       {!preview && <ErrorText message={error} />}
       <Disclaimer>TESTNET ONLY · VERIFY TOKEN CONTRACTS YOURSELF</Disclaimer>
 
-      <BottomSheet visible={!!preview} onClose={() => { if (!busy) setPreview(null); }} dismissable={!busy}>
-        {preview && (
-          <ScrollView>
+      <BottomSheet visible={!!preview} onClose={() => { if (!busy) setPreview(null); }} dismissable={!busy} scrollable>
+        {shownPreview && (
+          <SheetScrollView>
             <Text style={ui.sheetKicker}>REVIEW TOKEN TRANSFER</Text>
             <Text style={ui.sheetTitle}>Review carefully</Text>
             <Card>
-              <Detail label="TOKEN CONTRACT" value={preview.contractAddress} />
-              <Detail label="RECIPIENT" value={preview.recipient} />
-              <Detail label="TOKEN AMOUNT" value={`${preview.amount} ${preview.symbol}`} emphasis />
-              <Detail label="ESTIMATED NETWORK FEE" value={`${Number(preview.networkFee).toFixed(8)} ${network.symbol}`} />
+              <Detail label="TOKEN CONTRACT" value={shownPreview.contractAddress} />
+              <Detail label="RECIPIENT" value={shownPreview.recipient} />
+              <Detail label="TOKEN AMOUNT" value={`${shownPreview.amount} ${shownPreview.symbol}`} emphasis />
+              <Detail label="ESTIMATED NETWORK FEE" value={`${Number(shownPreview.networkFee).toFixed(8)} ${network.symbol}`} />
               <Detail label="NETWORK" value={`${network.name} · Chain ${network.chainId}`} />
             </Card>
             <WarningPanel title="Unverified contract">
@@ -116,7 +120,7 @@ export function SendToken({ address, network, token, onBack, onSent }: {
             <ErrorText message={error} />
             <PrimaryButton label="CONFIRM AND SEND" busyLabel="AUTHENTICATING…" busy={busy} onPress={confirmAndSend} />
             <GhostButton label="EDIT TRANSFER" onPress={() => setPreview(null)} disabled={busy} />
-          </ScrollView>
+          </SheetScrollView>
         )}
       </BottomSheet>
       <QrScanner visible={scanning} title="Scan address" hint="Point the camera at a recipient's address QR or ethereum: payment code." onScan={onScanned} onClose={() => setScanning(false)} />

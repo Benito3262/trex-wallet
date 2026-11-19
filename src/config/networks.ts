@@ -24,18 +24,26 @@ export const NETWORKS: EvmNetwork[] = [
 // Start on a test network so first-time testing cannot accidentally spend mainnet funds.
 export const DEFAULT_NETWORK = NETWORKS.find((network) => network.chainId === 84532) ?? NETWORKS[1];
 
-/** Public fallback RPC endpoints. RPC operators can see the public address and requests. */
-export const PUBLIC_RPC: Record<number, string> = {
-  1: "https://cloudflare-eth.com",
-  8453: "https://mainnet.base.org",
-  56: "https://bsc-dataseed.binance.org",
-  42161: "https://arb1.arbitrum.io/rpc",
-  10: "https://mainnet.optimism.io",
-  137: "https://polygon-rpc.com",
-  11155111: "https://ethereum-sepolia-rpc.publicnode.com",
-  84532: "https://sepolia.base.org",
-  46630: "https://rpc.testnet.chain.robinhood.com"
+/**
+ * Free public RPC endpoints, tried in order with automatic fallback (see wallet/rpcPool).
+ * Each was checked with eth_chainId + eth_getBalance on 2026-11-19. RPC operators can see
+ * the public address and requests. cloudflare-eth.com (Ethereum) and polygon-rpc.com
+ * (Polygon) were removed: both returned errors for every request.
+ */
+export const PUBLIC_RPCS: Record<number, string[]> = {
+  1: ["https://ethereum-rpc.publicnode.com", "https://eth.drpc.org", "https://1rpc.io/eth"],
+  8453: ["https://base-rpc.publicnode.com", "https://mainnet.base.org", "https://base.drpc.org", "https://1rpc.io/base"],
+  56: ["https://bsc-rpc.publicnode.com", "https://bsc-dataseed.binance.org", "https://bsc.drpc.org", "https://1rpc.io/bnb"],
+  42161: ["https://arbitrum-one-rpc.publicnode.com", "https://arb1.arbitrum.io/rpc", "https://arbitrum.drpc.org", "https://1rpc.io/arb"],
+  10: ["https://optimism-rpc.publicnode.com", "https://mainnet.optimism.io", "https://optimism.drpc.org", "https://1rpc.io/op"],
+  137: ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org", "https://1rpc.io/matic"],
+  11155111: ["https://ethereum-sepolia-rpc.publicnode.com", "https://1rpc.io/sepolia"],
+  84532: ["https://sepolia.base.org", "https://base-sepolia-rpc.publicnode.com", "https://base-sepolia.drpc.org"],
+  46630: ["https://rpc.testnet.chain.robinhood.com"]
 };
+
+/** First public endpoint per chain (kept for callers that only need to know a chain is configured). */
+export const PUBLIC_RPC: Record<number, string> = Object.fromEntries(Object.entries(PUBLIC_RPCS).map(([id, urls]) => [id, urls[0]]));
 
 // Expo only inlines EXPO_PUBLIC_* variables referenced literally, so keep this map explicit.
 const RPC_OVERRIDES: Record<number, string | undefined> = {
@@ -50,10 +58,17 @@ const RPC_OVERRIDES: Record<number, string | undefined> = {
   46630: process.env.EXPO_PUBLIC_ROBINHOOD_TESTNET_RPC_URL
 };
 
+/** All endpoints for a chain: a build-time override first, then the public list, de-duplicated. */
+export function rpcUrlsFor(chainId: number): string[] {
+  const urls = [RPC_OVERRIDES[chainId]?.trim(), ...(PUBLIC_RPCS[chainId] ?? [])].filter((url): url is string => !!url);
+  const unique = [...new Set(urls)];
+  if (unique.length === 0) throw new Error("No RPC endpoint is configured for this network.");
+  return unique;
+}
+
+/** Primary endpoint for a chain. Prefer wallet/rpcPool, which falls back across endpoints. */
 export function rpcUrlFor(chainId: number): string {
-  const url = RPC_OVERRIDES[chainId] || PUBLIC_RPC[chainId];
-  if (!url) throw new Error("No RPC endpoint is configured for this network.");
-  return url;
+  return rpcUrlsFor(chainId)[0];
 }
 
 export function networkByChainId(chainId: number): EvmNetwork | undefined {
@@ -64,8 +79,9 @@ export function isTestnet(chainId: number): boolean {
   return networkByChainId(chainId)?.testnet === true;
 }
 
+export const MAINNET_SIGNING_TITLE = "Mainnet sending is coming soon";
 export const MAINNET_SIGNING_BLOCKED_MESSAGE =
-  "Mainnet signing is disabled in this early test build. TREX can read balances and connect to sites on mainnet, but it will only sign on Ethereum Sepolia, Base Sepolia or Robinhood Chain Testnet.";
+  "Your mainnet balances and tokens work, and you can connect to apps. While TREX is in early testing it only signs on test networks (Sepolia, Base Sepolia and Robinhood Testnet), so nothing can leave your wallet on mainnet by mistake. Switch to a testnet to try sending.";
 
 /** Throws unless the chain is a supported test network. Used before every signature. */
 export function assertSigningAllowed(chainId: number): void {

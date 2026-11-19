@@ -8,6 +8,7 @@ import {
   addSecretWithAccount,
   deriveHdAccount,
   findAccount,
+  hdPath,
   migrateLegacyWallet,
   nextHdIndex,
   normalizePhrase,
@@ -159,10 +160,31 @@ export async function unlockAccount(accountId?: string, prompt = "Authenticate t
   return { account, signer: signerFor(secret, account) };
 }
 
-/** Saves a newly created or imported recovery phrase and its first account (index 0). */
-export async function addMnemonicWallet(phrase: string, name?: string): Promise<AccountMeta> {
+/**
+ * App unlock: proves the user passes the biometric gate on the active account's secret,
+ * without deriving a signer. HD derivation (PBKDF2 + secp256k1 on Hermes) takes around a
+ * second of blocked JS, so it only happens when something is actually signed.
+ */
+export async function authenticateWallet(prompt = "Authenticate to unlock your TREX Wallet"): Promise<AccountMeta> {
+  const registry = await loadRegistry();
+  if (!registry) throw new Error("No wallet is stored on this device.");
+  const account = activeAccount(registry);
+  if (!account) throw new Error("Account not found.");
+  if (account.secretId === LEGACY_SECRET_ID) return (await unlockAccount(undefined, prompt)).account;
+  await loadSecret(account.secretId, prompt);
+  return account;
+}
+
+/**
+ * Saves a newly created or imported recovery phrase and its first account (index 0).
+ * `precomputed` lets the create flow reuse the address it already derived from this exact
+ * phrase in memory, avoiding a second second-long derivation.
+ */
+export async function addMnemonicWallet(phrase: string, name?: string, precomputed?: { address: string; derivationPath: string }): Promise<AccountMeta> {
   const mnemonic = normalizePhrase(phrase);
-  const derived = deriveHdAccount(mnemonic, 0);
+  const derived = precomputed && precomputed.derivationPath === hdPath(0)
+    ? { address: precomputed.address, derivationPath: precomputed.derivationPath }
+    : deriveHdAccount(mnemonic, 0);
   const registry = (await loadRegistry()) ?? { version: 2 as const, activeAccountId: null, secrets: [], accounts: [] };
   const secretId = newId();
   const next = addSecretWithAccount(registry, {

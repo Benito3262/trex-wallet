@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
+import { AnimatedPressable as Pressable } from "./AnimatedPressable";
 import { theme } from "../theme";
 import { analyzeEvmTransaction } from "../security/analyzeTransaction";
 import type { TransactionAnalysis } from "../security/analyzeTransaction";

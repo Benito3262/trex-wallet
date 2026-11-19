@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable as Pressable } from "./AnimatedPressable";
 import type { EvmNetwork } from "../config/networks";
 import { approvalQueue } from "../dapp/approvalCenter";
 import { encodeRevoke } from "../security/approvalRewrite";

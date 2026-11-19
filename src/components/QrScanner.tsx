@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Linking, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Linking, Modal, StyleSheet, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { AnimatedPressable as Pressable } from "./AnimatedPressable";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { theme } from "../theme";
 import { FadeIn, SpringPressable } from "./motion";
@@ -99,7 +101,8 @@ export function QrScanner({ visible, title, hint, onScan, onClose }: {
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.screen}>
+      {/* Android modals are separate windows: gestures need their own root inside. */}
+      <GestureHandlerRootView style={styles.screen}>
         <View style={styles.header}>
           <Pressable onPress={onClose} hitSlop={12}><Text style={styles.close}>✕ CLOSE</Text></Pressable>
           <Text style={styles.title}>{title}</Text>
@@ -108,7 +111,7 @@ export function QrScanner({ visible, title, hint, onScan, onClose }: {
         {body}
         <Text style={styles.hint}>{hint}</Text>
         {!!error && <FadeIn trigger={error}><Text accessibilityRole="alert" style={styles.error}>{error}</Text></FadeIn>}
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

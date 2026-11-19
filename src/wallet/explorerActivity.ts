@@ -20,7 +20,7 @@ const EXPLORER_API: Record<number, string> = {
   1: "https://eth.blockscout.com/api/v2",
   8453: "https://base.blockscout.com/api/v2",
   42161: "https://arbitrum.blockscout.com/api/v2",
-  10: "https://optimism.blockscout.com/api/v2",
+  10: "https://explorer.optimism.io/api/v2",
   137: "https://polygon.blockscout.com/api/v2",
   11155111: "https://eth-sepolia.blockscout.com/api/v2",
   84532: "https://base-sepolia.blockscout.com/api/v2",
@@ -38,9 +38,29 @@ function asTimestamp(value: unknown): string {
   return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
 }
 
+/** The public explorer index is down, rate-limited or behind a bot check. Not a wallet problem. */
+export class ExplorerUnavailableError extends Error {
+  constructor(public status?: number) {
+    super("Activity history is temporarily unavailable from the public explorer for this network. Your balance is still read directly from the chain.");
+    this.name = "ExplorerUnavailableError";
+  }
+}
+
+async function fetchWithTimeout(url: string, ms = 10000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { headers: { Accept: "application/json" }, signal: controller.signal });
+  } catch {
+    throw new ExplorerUnavailableError();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function getItems(url: string): Promise<any[]> {
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!response.ok) throw new Error(`Explorer request failed (${response.status}).`);
+  const response = await fetchWithTimeout(url);
+  if (!response.ok) throw new ExplorerUnavailableError(response.status);
   const payload: any = await response.json();
   if (!Array.isArray(payload?.items)) throw new Error("Explorer returned an unexpected activity response.");
   return payload.items;
@@ -52,7 +72,7 @@ async function getItems(url: string): Promise<any[]> {
  */
 export async function fetchAddressActivity(network: EvmNetwork, address: string): Promise<ExplorerActivity[]> {
   const base = EXPLORER_API[network.chainId];
-  if (!base) throw new Error("Incoming activity indexing is not configured for this network yet.");
+  if (!base) throw new ExplorerUnavailableError();
   const normalized = address.toLowerCase();
   const root = `${base}/addresses/${encodeURIComponent(address)}`;
   const [nativeItems, tokenItems] = await Promise.all([
@@ -136,10 +156,7 @@ export async function fetchAddressTokenBalances(
 ): Promise<IndexedTokenBalance[]> {
   const base = EXPLORER_TOKEN_BALANCE_API[network.chainId];
   if (!base) return [];
-  const response = await fetch(
-    `${base}/addresses/${encodeURIComponent(address)}/token-balances`,
-    { headers: { Accept: "application/json" } }
-  );
+  const response = await fetchWithTimeout(`${base}/addresses/${encodeURIComponent(address)}/token-balances`);
   if (!response.ok) {
     if (response.status === 404 || response.status === 501) return [];
     throw new Error(`Token discovery unavailable (${response.status}).`);

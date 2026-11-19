@@ -1,14 +1,7 @@
 import React, { useMemo, useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View
-} from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { AnimatedPressable as Pressable } from "./AnimatedPressable";
+import { afterPaint } from "../utils/defer";
 import { createWalletIdentity } from "../wallet/identity";
 import { addMnemonicWallet, addPrivateKeyWallet, restoreMnemonicWallet } from "../wallet/vault";
 import { addressFromPrivateKey, deriveHdAccount } from "../wallet/accounts";
@@ -39,6 +32,7 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose",
   const [step, setStep] = useState<Step>(initialMode === "import" ? "import" : "choose");
   const [mnemonic, setMnemonic] = useState("");
   const [address, setAddress] = useState("");
+  const [createdPath, setCreatedPath] = useState("");
   const [privateKeyInput, setPrivateKeyInput] = useState("");
   const [challengeAnswers, setChallengeAnswers] = useState(["", ""]);
   const [error, setError] = useState("");
@@ -49,22 +43,32 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose",
     return [2, 8];
   }, [words.length]);
 
-  function startCreate() {
+  const [creating, setCreating] = useState(false);
+  async function startCreate() {
+    if (creating) return;
+    setCreating(true);
+    setError("");
+    // Show the spinner first: generating + deriving a phrase blocks JS for about a second.
+    await afterPaint();
     try {
       const generated = createWalletIdentity();
       setMnemonic(generated.mnemonic);
       setAddress(generated.address);
+      setCreatedPath(generated.derivationPath);
       setChallengeAnswers(["", ""]);
       setError("");
       setStep("recovery");
     } catch {
       setError("Wallet generation failed. Check device security and try again.");
+    } finally {
+      setCreating(false);
     }
   }
 
-  async function persistWallet(secret: { kind: "mnemonic"; value: string } | { kind: "privateKey"; value: string }, retryStep: Step) {
+  async function persistWallet(secret: { kind: "mnemonic"; value: string } | { kind: "privateKey"; value: string }, retryStep: Step, precomputed?: { address: string; derivationPath: string }) {
     setStep("saving");
     setError("");
+    await afterPaint();
     try {
       const biometricHardware = await LocalAuthentication.hasHardwareAsync();
       const biometricEnrolled = await LocalAuthentication.isEnrolledAsync();
@@ -75,7 +79,7 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose",
         ? await addPrivateKeyWallet(secret.value)
         : purpose === "restore"
           ? await restoreMnemonicWallet(secret.value)
-          : await addMnemonicWallet(secret.value);
+          : await addMnemonicWallet(secret.value, undefined, precomputed);
       setMnemonic("");
       setPrivateKeyInput("");
       onComplete(account.address);
@@ -93,7 +97,7 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose",
       setError("Those words do not match. Check your written recovery phrase and try again.");
       return;
     }
-    void persistWallet({ kind: "mnemonic", value: mnemonic }, "verify");
+    void persistWallet({ kind: "mnemonic", value: mnemonic }, "verify", address ? { address, derivationPath: createdPath } : undefined);
   }
 
   async function importWallet() {
@@ -128,7 +132,9 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose",
             <Text style={styles.kicker}>YOUR KEYS. YOUR CONTROL.</Text>
             <Text style={styles.title}>{purpose === "add" ? "Add another wallet" : "Set up your wallet"}</Text>
             <Text style={styles.body}>{purpose === "add" ? "Create a new recovery phrase or import one you already have. Each wallet is protected separately by your device biometrics." : "Create a new wallet or restore an existing EVM wallet with its recovery phrase."}</Text>
-            <Pressable style={buttonStyle} onPress={startCreate}><Text style={styles.primaryText}>Create new wallet</Text></Pressable>
+            <Pressable style={[buttonStyle, creating && { opacity: 0.85 }]} onPress={startCreate} disabled={creating} haptic="medium" accessibilityState={{ busy: creating }}>
+              {creating ? <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}><ActivityIndicator color="#FFFFFF" size="small" /><Text style={styles.primaryText}>Generating secure keys…</Text></View> : <Text style={styles.primaryText}>Create new wallet</Text>}
+            </Pressable>
             <Pressable style={styles.secondaryButton} onPress={() => { setMnemonic(""); setError(""); setStep("import"); }}>
               <Text style={styles.secondaryText}>Import recovery phrase</Text>
             </Pressable>

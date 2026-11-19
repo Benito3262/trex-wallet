@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import type { EvmNetwork } from "../config/networks";
 import { unlockAccount } from "../wallet/vault";
+import { afterPaint } from "../utils/defer";
 import { prepareNativeTransfer, sendNativeTransfer } from "../wallet/transactions";
 import type { NativeTransferPreview } from "../wallet/transactions";
 import { recordTransaction } from "../wallet/history";
 import { parseRecipientQr, recipientWarnings } from "../scan/qr";
-import { BottomSheet, FadeIn } from "./motion";
+import { BottomSheet, FadeIn, SheetScrollView, useLingering } from "./motion";
 import { QrScanner } from "./QrScanner";
 import { AddressField, Card, Detail, Disclaimer, ErrorText, Field, FieldLabel, GhostButton, PrimaryButton, ScreenHeader, SuccessCard, WarningPanel, ui } from "./ui";
 
@@ -19,6 +20,7 @@ export function SendNative({ address, network, onBack, onSent }: {
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [preview, setPreview] = useState<NativeTransferPreview | null>(null);
+  const shownPreview = useLingering(preview);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [hash, setHash] = useState("");
@@ -39,8 +41,10 @@ export function SendNative({ address, network, onBack, onSent }: {
   }
 
   async function confirmAndSend() {
+    if (busy) return;
     setBusy(true);
     setError("");
+    await afterPaint();
     try {
       const { signer: wallet } = await unlockAccount(undefined, "Authenticate to sign this transfer");
       if (wallet.address.toLowerCase() !== address.toLowerCase()) throw new Error("The active account changed. Reopen this screen and try again.");
@@ -107,26 +111,26 @@ export function SendNative({ address, network, onBack, onSent }: {
       {!preview && <ErrorText message={error} />}
       <Disclaimer>EARLY TEST BUILD · TESTNET FUNDS ONLY</Disclaimer>
 
-      <BottomSheet visible={!!preview} onClose={() => { if (!busy) setPreview(null); }} dismissable={!busy}>
-        {preview && (
-          <ScrollView>
+      <BottomSheet visible={!!preview} onClose={() => { if (!busy) setPreview(null); }} dismissable={!busy} scrollable>
+        {shownPreview && (
+          <SheetScrollView>
             <Text style={ui.sheetKicker}>REVIEW TRANSFER</Text>
             <Text style={ui.sheetTitle}>Review carefully</Text>
             <Card>
-              <Detail label="RECIPIENT" value={preview.to} />
-              <Detail label="AMOUNT" value={`${preview.amount} ${preview.symbol}`} emphasis />
-              <Detail label="ESTIMATED NETWORK FEE" value={`${Number(preview.estimatedNetworkFee).toFixed(8)} ${preview.symbol}`} />
-              <Detail label="MAXIMUM TOTAL" value={`${Number(preview.totalMaximum).toFixed(8)} ${preview.symbol}`} />
+              <Detail label="RECIPIENT" value={shownPreview.to} />
+              <Detail label="AMOUNT" value={`${shownPreview.amount} ${shownPreview.symbol}`} emphasis />
+              <Detail label="ESTIMATED NETWORK FEE" value={`${Number(shownPreview.estimatedNetworkFee).toFixed(8)} ${shownPreview.symbol}`} />
+              <Detail label="MAXIMUM TOTAL" value={`${Number(shownPreview.totalMaximum).toFixed(8)} ${shownPreview.symbol}`} />
               <Detail label="NETWORK" value={`${network.name} · Chain ${network.chainId}`} />
               <Detail label="SENDING FROM" value={address} />
             </Card>
             <WarningPanel title="Before you sign">
-              {`Crypto transfers cannot normally be reversed. Check every character of the recipient. This preview checks the chain, address format, balance and gas estimate. ${preview.recipientIsContract ? "The recipient is a smart contract. Confirm it is meant to receive this asset." : "The recipient is not a contract."} These checks do not prove who owns the address or detect every scam.`}
+              {`Crypto transfers cannot normally be reversed. Check every character of the recipient. This preview checks the chain, address format, balance and gas estimate. ${shownPreview.recipientIsContract ? "The recipient is a smart contract. Confirm it is meant to receive this asset." : "The recipient is not a contract."} These checks do not prove who owns the address or detect every scam.`}
             </WarningPanel>
             <ErrorText message={error} />
             <PrimaryButton label="CONFIRM AND SEND" busyLabel="AUTHENTICATING…" busy={busy} onPress={confirmAndSend} />
             <GhostButton label="EDIT TRANSFER" onPress={() => setPreview(null)} disabled={busy} />
-          </ScrollView>
+          </SheetScrollView>
         )}
       </BottomSheet>
       <QrScanner visible={scanning} title="Scan address" hint="Point the camera at a recipient's address QR or ethereum: payment code." onScan={onScanned} onClose={() => setScanning(false)} />

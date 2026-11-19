@@ -1,10 +1,6 @@
-import {
-  Contract,
-  JsonRpcProvider,
-  formatUnits,
-  isAddress
-} from "ethers";
-import { rpcUrlFor, type EvmNetwork } from "../config/networks";
+import { Contract, formatUnits, isAddress } from "ethers";
+import type { EvmNetwork } from "../config/networks";
+import { answerError, withProvider } from "./rpcPool";
 
 const ERC20_READ_ABI = [
   "function symbol() view returns (string)",
@@ -32,16 +28,9 @@ export async function inspectErc20Token(
 ): Promise<TokenBalance> {
   if (!isAddress(contractAddress)) throw new Error("Token contract address is invalid.");
   if (!isAddress(walletAddress)) throw new Error("Wallet address is invalid.");
-  const rpcUrl = rpcUrlFor(network.chainId);
-
-  const provider = new JsonRpcProvider(rpcUrl, network.chainId, { staticNetwork: true });
-  try {
-    const chainHex = await provider.send("eth_chainId", []);
-    if (Number(BigInt(chainHex)) !== network.chainId) {
-      throw new Error("RPC chain mismatch. Token lookup was stopped.");
-    }
+  return withProvider(network, async (provider) => {
     const code = await provider.getCode(contractAddress);
-    if (code === "0x") throw new Error("No contract code was found at that address on this network.");
+    if (code === "0x") throw answerError("No contract code was found at that address on this network.");
 
     const contract = new Contract(contractAddress, ERC20_READ_ABI, provider);
     const [symbol, name, decimalsValue, balance] = await Promise.all([
@@ -52,11 +41,11 @@ export async function inspectErc20Token(
     ]);
     const decimals = Number(decimalsValue);
     if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) {
-      throw new Error("The token returned an unsupported decimal count.");
+      throw answerError("The token returned an unsupported decimal count.");
     }
     const safeSymbol = String(symbol).trim();
     if (!safeSymbol || safeSymbol.length > 16) {
-      throw new Error("The token returned an invalid symbol.");
+      throw answerError("The token returned an invalid symbol.");
     }
     return {
       chainId: network.chainId,
@@ -66,7 +55,5 @@ export async function inspectErc20Token(
       decimals,
       balance: formatUnits(balance, decimals)
     };
-  } finally {
-    provider.destroy();
-  }
+  }, 15000);
 }

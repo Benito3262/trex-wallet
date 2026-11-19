@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, StyleSheet, Text, TextInput, View } from "react-native";
+import { AnimatedPressable as Pressable } from "./AnimatedPressable";
 import WebView from "react-native-webview";
 import { hexlify, randomBytes } from "ethers";
 import { theme } from "../theme";
