@@ -3,29 +3,22 @@
     "name": "TREX Wallet",
     "slug": "trex-wallet",
     "scheme": "trexwallet",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
     "android": {
       "package": "com.trexwallet.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#090812"
       },
-      "permissions": [
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
-      ]
+      "permissions": ["USE_BIOMETRIC", "USE_FINGERPRINT"]
     },
     "plugins": [
       "expo-local-authentication",
-      [
-        "expo-secure-store",
-        {
-          "configureAndroidBackup": true,
-          "faceIDPermission": "Allow TREX Wallet to use biometric authentication."
-        }
-      ]
+      ["expo-secure-store", {"configureAndroidBackup": true, "faceIDPermission": "Allow TREX Wallet to use biometric authentication."}]
     ]
   }
 }
