@@ -20,6 +20,12 @@ jobs:
         run: npm install
       - name: Check Expo dependency compatibility
         run: npx expo install --check
+      - name: Generate launcher icon assets
+        run: |
+          sudo apt-get update && sudo apt-get install -y imagemagick
+          mkdir -p assets
+          convert -background none assets/icon.svg -resize 1024x1024 assets/icon.png
+          convert -background none assets/icon.svg -resize 1024x1024 -gravity center -extent 1024x1024 assets/adaptive-icon.png
       - name: Expo Doctor
         run: npx expo-doctor
       - name: TypeScript
