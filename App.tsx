@@ -22,7 +22,7 @@ import { WalletManager } from "./src/components/WalletManager";
 import { getWalletAddress } from "./src/wallet/vault";
 import { getNativeBalance } from "./src/wallet/balances";
 import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
-import { fetchAddressActivity, type ExplorerActivity } from "./src/wallet/explorerActivity";
+import { fetchAddressActivity, fetchAddressTokenBalances, type ExplorerActivity } from "./src/wallet/explorerActivity";
 import { ReceiveAddress } from "./src/components/ReceiveAddress";
 import { SendNative } from "./src/components/SendNative";
 import { AddToken } from "./src/components/AddToken";
@@ -75,7 +75,7 @@ export default function App() {
   const [sendOpen, setSendOpen] = useState(false);
   const [addTokenOpen, setAddTokenOpen] = useState(false);
   const [tokenRefreshKey, setTokenRefreshKey] = useState(0);
-  const [customTokens, setCustomTokens] = useState<TokenBalance[]>([]);
+  const [customTokens, setCustomTokens] = useState<(TokenBalance & { discovered?: boolean })[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenMetadata | null>(null);
   const [networkPickerOpen, setNetworkPickerOpen] = useState(false);
   const [walletManagerOpen, setWalletManagerOpen] = useState(false);
@@ -102,18 +102,22 @@ export default function App() {
   useEffect(() => {
     if (!walletAddress) { setCustomTokens([]); return; }
     let active = true;
-    getCustomTokens(network.chainId)
-      .then(async (saved) => {
-        const balances = await Promise.all(saved.map(async (token) => {
-          try {
-            return await inspectErc20Token(network, token.contractAddress, walletAddress);
-          } catch {
-            return { ...token, balance: "Unavailable" };
-          }
-        }));
-        if (active) setCustomTokens(balances);
-      })
-      .catch(() => { if (active) setCustomTokens([]); });
+    Promise.all([
+      getCustomTokens(network.chainId).then(async (saved) => Promise.all(saved.map(async (token) => {
+        try {
+          return { ...await inspectErc20Token(network, token.contractAddress, walletAddress), discovered: false };
+        } catch {
+          return { ...token, balance: "Unavailable", discovered: false };
+        }
+      }))),
+      fetchAddressTokenBalances(network, walletAddress).catch(() => [])
+    ]).then(([savedBalances, indexedBalances]) => {
+      if (!active) return;
+      const merged = new Map<string, TokenBalance & { discovered?: boolean }>();
+      for (const token of indexedBalances) merged.set(token.contractAddress.toLowerCase(), { ...token, discovered: true });
+      for (const token of savedBalances) merged.set(token.contractAddress.toLowerCase(), token);
+      setCustomTokens([...merged.values()].sort((a, b) => a.symbol.localeCompare(b.symbol)));
+    }).catch(() => { if (active) setCustomTokens([]); });
     return () => { active = false; };
   }, [walletAddress, network, tokenRefreshKey]);
 
@@ -304,8 +308,8 @@ export default function App() {
               {customTokens.length === 0 ? (
                 <View style={styles.emptyCard}>
                   <View style={styles.emptyIcon}><Text style={styles.emptyIconText}>◇</Text></View>
-                  <Text style={styles.emptyTitle}>{walletAddress ? "No custom tokens added" : "Your assets will appear here"}</Text>
-                  <Text style={styles.emptyText}>{walletAddress ? "Add an ERC-20 contract address to read its balance on this network." : "Create or import a wallet to see balances and tokens across your EVM networks."}</Text>
+                  <Text style={styles.emptyTitle}>{walletAddress ? "No token balances found" : "Your assets will appear here"}</Text>
+                  <Text style={styles.emptyText}>{walletAddress ? "TREX checks indexed token balances automatically. You can still add a token contract manually if an asset is not indexed." : "Create or import a wallet to see balances and tokens across your EVM networks."}</Text>
                 </View>
               ) : customTokens.map((token) => (
                 <View key={token.contractAddress} style={styles.tokenRow}>
@@ -313,13 +317,13 @@ export default function App() {
                     <View style={styles.tokenSymbolBubble}><Text style={styles.tokenSymbolText}>{token.symbol.slice(0, 3).toUpperCase()}</Text></View>
                     <View style={styles.tokenDetails}>
                       <Text style={styles.tokenNameText}>{token.name}</Text>
-                      <Text style={styles.tokenMetaText}>{token.symbol} · {network.chainId === 11155111 || network.chainId === 84532 ? "Tap to send · Unverified" : "Unverified contract"}</Text>
+                      <Text style={styles.tokenMetaText}>{token.symbol} · {token.discovered ? "Auto-discovered · Unverified" : "Manually added · Unverified"}</Text>
                     </View>
                     <Text style={styles.tokenBalanceText}>{token.balance}</Text>
                   </Pressable>
-                  <Pressable onPress={() => Alert.alert("Remove token?", `Remove ${token.symbol} from this device's asset list?`, [{ text: "Cancel", style: "cancel" }, { text: "Remove", style: "destructive", onPress: () => { removeCustomToken(network.chainId, token.contractAddress).then(() => setTokenRefreshKey((value) => value + 1)).catch(() => undefined); } }])}>
+                  {!token.discovered && <Pressable onPress={() => Alert.alert("Remove token?", `Remove ${token.symbol} from this device's asset list?`, [{ text: "Cancel", style: "cancel" }, { text: "Remove", style: "destructive", onPress: () => { removeCustomToken(network.chainId, token.contractAddress).then(() => setTokenRefreshKey((value) => value + 1)).catch(() => undefined); } }])}>
                     <Text style={styles.removeToken}>×</Text>
-                  </Pressable>
+                  </Pressable>}
                 </View>
               ))}
 
