@@ -1,11 +1,14 @@
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import type { EvmNetwork } from "../config/networks";
-import { theme } from "../theme";
 import { unlockAccount } from "../wallet/vault";
 import { prepareNativeTransfer, sendNativeTransfer } from "../wallet/transactions";
 import type { NativeTransferPreview } from "../wallet/transactions";
 import { recordTransaction } from "../wallet/history";
+import { parseRecipientQr, recipientWarnings } from "../scan/qr";
+import { BottomSheet, FadeIn } from "./motion";
+import { QrScanner } from "./QrScanner";
+import { AddressField, Card, Detail, Disclaimer, ErrorText, Field, FieldLabel, GhostButton, PrimaryButton, ScreenHeader, SuccessCard, WarningPanel, ui } from "./ui";
 
 export function SendNative({ address, network, onBack, onSent }: {
   address: string;
@@ -19,14 +22,15 @@ export function SendNative({ address, network, onBack, onSent }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [hash, setHash] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [scanNotes, setScanNotes] = useState<string[]>([]);
 
   async function review() {
     setBusy(true);
     setError("");
     setPreview(null);
     try {
-      const next = await prepareNativeTransfer(network, address, recipient, amount);
-      setPreview(next);
+      setPreview(await prepareNativeTransfer(network, address, recipient, amount));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to prepare this transfer.");
     } finally {
@@ -54,9 +58,9 @@ export function SendNative({ address, network, onBack, onSent }: {
           status: "submitted"
         });
       } catch {
-        // The network submission succeeded; a local history write must not
-        // misreport the transaction as failed.
+        // The network submission succeeded; a local history write must not misreport it as failed.
       }
+      setPreview(null);
       setHash(txHash);
       onSent(txHash);
     } catch (e) {
@@ -66,95 +70,66 @@ export function SendNative({ address, network, onBack, onSent }: {
     }
   }
 
+  function onScanned(data: string): string | null {
+    try {
+      const scan = parseRecipientQr(data);
+      setRecipient(scan.address);
+      setPreview(null);
+      setScanNotes(recipientWarnings(scan, { chainId: network.chainId, chainName: network.name }));
+      setScanning(false);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Could not read this QR code.";
+    }
+  }
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.header}>
-        <Pressable onPress={onBack}><Text style={styles.back}>‹ BACK</Text></Pressable>
-        <Text style={styles.heading}>Send {network.symbol}</Text>
-        <View style={{ width: 52 }} />
-      </View>
+    <ScrollView style={ui.screen} contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+      <ScreenHeader kicker="SEND" title={`Send ${network.symbol}`} onBack={onBack} />
       {!hash ? (
-        <>
-          <Text style={styles.body}>Send the network's native asset from your wallet. TREX will estimate the fee and show the recipient before you approve the signature.</Text>
-          <Text style={styles.fieldLabel}>NETWORK</Text>
-          <View style={styles.readOnly}><Text style={styles.readOnlyText}>{network.name} · Chain {network.chainId}</Text></View>
-          <Text style={styles.fieldLabel}>RECIPIENT ADDRESS</Text>
-          <TextInput value={recipient} onChangeText={(v) => { setRecipient(v); setPreview(null); }} autoCapitalize="none" autoCorrect={false} spellCheck={false} placeholder="0x..." placeholderTextColor={theme.colors.muted} style={styles.input} />
-          <Text style={styles.fieldLabel}>AMOUNT ({network.symbol})</Text>
-          <TextInput value={amount} onChangeText={(v) => { setAmount(v); setPreview(null); }} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={theme.colors.muted} style={styles.input} />
-          {!preview ? (
-            <Pressable onPress={review} disabled={busy || !recipient || !amount} style={[styles.primary, (busy || !recipient || !amount) && styles.disabled]}>
-              <Text style={styles.primaryText}>{busy ? "CHECKING NETWORK..." : "REVIEW TRANSFER"}</Text>
-            </Pressable>
-          ) : (
-            <>
-              <View style={styles.reviewCard}>
-                <Text style={styles.reviewTitle}>Review carefully</Text>
-                <Text style={styles.detailLabel}>RECIPIENT</Text>
-                <Text selectable style={styles.detailValue}>{preview.to}</Text>
-                <Text style={styles.detailLabel}>AMOUNT</Text>
-                <Text style={styles.amountValue}>{preview.amount} {preview.symbol}</Text>
-                <Text style={styles.detailLabel}>ESTIMATED NETWORK FEE</Text>
-                <Text style={styles.detailValue}>{Number(preview.estimatedNetworkFee).toFixed(8)} {preview.symbol}</Text>
-                <Text style={styles.detailLabel}>MAXIMUM TOTAL</Text>
-                <Text style={styles.detailValue}>{Number(preview.totalMaximum).toFixed(8)} {preview.symbol}</Text>
-                <Text style={styles.detailLabel}>SENDING FROM</Text>
-                <Text selectable style={styles.detailValue}>{address}</Text>
-              </View>
-              <View style={styles.warning}>
-                <Text style={styles.warningTitle}>Before you sign</Text>
-                <Text style={styles.warningText}>Crypto transfers cannot normally be reversed. Check every character of the recipient and confirm the network. This preview checks the chain, address format, balance and gas estimate. {preview.recipientIsContract ? "The recipient is a smart contract. Confirm that it is intended to receive this native asset." : "The recipient address is not identified as a contract."} These checks do not guarantee recipient ownership or detect every scam.</Text>
-              </View>
-              <Pressable onPress={confirmAndSend} disabled={busy} style={[styles.primary, busy && styles.disabled]}>
-                <Text style={styles.primaryText}>{busy ? "AUTHENTICATING AND SENDING..." : "CONFIRM AND SEND"}</Text>
-              </Pressable>
-              <Pressable onPress={() => setPreview(null)} style={styles.editButton}><Text style={styles.editText}>EDIT TRANSFER</Text></Pressable>
-            </>
-          )}
-        </>
+        <FadeIn delay={60}>
+          <Text style={ui.body}>Send the network's native asset. TREX estimates the fee and shows everything before you approve with biometrics.</Text>
+          <FieldLabel>NETWORK</FieldLabel>
+          <View style={ui.readOnly}><Text style={ui.readOnlyText}>{network.name} · Chain {network.chainId}</Text></View>
+          <FieldLabel>RECIPIENT ADDRESS</FieldLabel>
+          <AddressField value={recipient} onChangeText={(v) => { setRecipient(v); setPreview(null); setScanNotes([]); }} onScan={() => setScanning(true)} />
+          {scanNotes.map((note) => <WarningPanel key={note} title="Check the scanned code">{note}</WarningPanel>)}
+          <FieldLabel>AMOUNT ({network.symbol})</FieldLabel>
+          <Field value={amount} onChangeText={(v) => { setAmount(v); setPreview(null); }} keyboardType="decimal-pad" placeholder="0.00" />
+          <PrimaryButton label="REVIEW TRANSFER" busyLabel="CHECKING NETWORK…" busy={busy && !preview} disabled={!recipient || !amount} onPress={review} />
+        </FadeIn>
       ) : (
-        <View style={styles.successCard}>
-          <Text style={styles.successIcon}>✓</Text>
-          <Text style={styles.successTitle}>Transaction submitted</Text>
-          <Text style={styles.body}>Your transaction was sent to the network. It is not confirmed until the chain includes it in a block.</Text>
-          <Text style={styles.detailLabel}>TRANSACTION HASH</Text>
-          <Text selectable style={styles.detailValue}>{hash}</Text>
-          <Pressable onPress={onBack} style={styles.primary}><Text style={styles.primaryText}>DONE</Text></Pressable>
-        </View>
+        <SuccessCard title="Transaction submitted" body="Your transaction was sent to the network. It is not confirmed until the chain includes it in a block.">
+          <Detail label="TRANSACTION HASH" value={hash} />
+          <PrimaryButton label="DONE" onPress={onBack} />
+        </SuccessCard>
       )}
-      {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      <Text style={styles.disclaimer}>EARLY PREVIEW · USE TEST FUNDS UNTIL SECURITY REVIEW IS COMPLETE</Text>
+      {!preview && <ErrorText message={error} />}
+      <Disclaimer>EARLY TEST BUILD · TESTNET FUNDS ONLY</Disclaimer>
+
+      <BottomSheet visible={!!preview} onClose={() => { if (!busy) setPreview(null); }} dismissable={!busy}>
+        {preview && (
+          <ScrollView>
+            <Text style={ui.sheetKicker}>REVIEW TRANSFER</Text>
+            <Text style={ui.sheetTitle}>Review carefully</Text>
+            <Card>
+              <Detail label="RECIPIENT" value={preview.to} />
+              <Detail label="AMOUNT" value={`${preview.amount} ${preview.symbol}`} emphasis />
+              <Detail label="ESTIMATED NETWORK FEE" value={`${Number(preview.estimatedNetworkFee).toFixed(8)} ${preview.symbol}`} />
+              <Detail label="MAXIMUM TOTAL" value={`${Number(preview.totalMaximum).toFixed(8)} ${preview.symbol}`} />
+              <Detail label="NETWORK" value={`${network.name} · Chain ${network.chainId}`} />
+              <Detail label="SENDING FROM" value={address} />
+            </Card>
+            <WarningPanel title="Before you sign">
+              {`Crypto transfers cannot normally be reversed. Check every character of the recipient. This preview checks the chain, address format, balance and gas estimate. ${preview.recipientIsContract ? "The recipient is a smart contract. Confirm it is meant to receive this asset." : "The recipient is not a contract."} These checks do not prove who owns the address or detect every scam.`}
+            </WarningPanel>
+            <ErrorText message={error} />
+            <PrimaryButton label="CONFIRM AND SEND" busyLabel="AUTHENTICATING…" busy={busy} onPress={confirmAndSend} />
+            <GhostButton label="EDIT TRANSFER" onPress={() => setPreview(null)} disabled={busy} />
+          </ScrollView>
+        )}
+      </BottomSheet>
+      <QrScanner visible={scanning} title="Scan address" hint="Point the camera at a recipient's address QR or ethereum: payment code." onScan={onScanned} onClose={() => setScanning(false)} />
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background },
-  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 30 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
-  back: { color: theme.colors.primaryBright, fontSize: 10, fontWeight: "900", width: 52 },
-  heading: { color: theme.colors.text, fontSize: 18, fontWeight: "900" },
-  body: { color: theme.colors.muted, fontSize: 11, lineHeight: 18, marginBottom: 18 },
-  fieldLabel: { color: theme.colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.2, marginBottom: 7, marginTop: 15 },
-  readOnly: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 12, padding: 13 },
-  readOnlyText: { color: theme.colors.text, fontSize: 12, fontWeight: "700" },
-  input: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 13, color: theme.colors.text, fontSize: 12 },
-  primary: { backgroundColor: theme.colors.primary, borderRadius: 13, alignItems: "center", paddingVertical: 15, marginTop: 20 },
-  primaryText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
-  disabled: { opacity: 0.45 },
-  reviewCard: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 16, padding: 15, marginTop: 20 },
-  reviewTitle: { color: theme.colors.text, fontSize: 14, fontWeight: "900", marginBottom: 12 },
-  detailLabel: { color: theme.colors.muted, fontSize: 8, fontWeight: "900", letterSpacing: 1, marginTop: 10, marginBottom: 5 },
-  detailValue: { color: theme.colors.text, fontSize: 10, lineHeight: 16 },
-  amountValue: { color: theme.colors.primaryBright, fontSize: 20, fontWeight: "900" },
-  warning: { backgroundColor: "#2A160B", borderColor: "#6B3B17", borderWidth: 1, borderRadius: 13, padding: 14, marginTop: 14 },
-  warningTitle: { color: theme.colors.warning, fontSize: 10, fontWeight: "900", marginBottom: 6 },
-  warningText: { color: theme.colors.muted, fontSize: 10, lineHeight: 17 },
-  editButton: { alignItems: "center", padding: 14 },
-  editText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
-  successCard: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 18, padding: 18, marginTop: 30 },
-  successIcon: { color: theme.colors.success, fontSize: 34, fontWeight: "900", marginBottom: 12 },
-  successTitle: { color: theme.colors.text, fontSize: 18, fontWeight: "900", marginBottom: 9 },
-  error: { color: theme.colors.danger, fontSize: 11, lineHeight: 17, marginTop: 14 },
-  disclaimer: { color: "#8F6B4B", fontSize: 8, textAlign: "center", letterSpacing: 1, marginTop: 28 }
-});

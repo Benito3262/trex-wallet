@@ -22,6 +22,15 @@
     "plugins": [
       "expo-local-authentication",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow TREX Wallet to use the camera to scan QR codes for addresses and WalletConnect.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
         "expo-secure-store",
         {
           "configureAndroidBackup": true,

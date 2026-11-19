@@ -1,12 +1,15 @@
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ScrollView, Text } from "react-native";
 import type { EvmNetwork } from "../config/networks";
-import { theme } from "../theme";
 import { unlockAccount } from "../wallet/vault";
 import { recordTransaction } from "../wallet/history";
 import { prepareErc20Transfer, sendErc20Transfer } from "../wallet/erc20Transactions";
 import type { Erc20TransferPreview } from "../wallet/erc20Transactions";
 import type { TokenMetadata } from "../wallet/tokens";
+import { parseRecipientQr, recipientWarnings } from "../scan/qr";
+import { BottomSheet, FadeIn } from "./motion";
+import { QrScanner } from "./QrScanner";
+import { AddressField, Card, Detail, Disclaimer, ErrorText, Field, FieldLabel, GhostButton, PrimaryButton, ScreenHeader, WarningPanel, ui } from "./ui";
 
 export function SendToken({ address, network, token, onBack, onSent }: {
   address: string;
@@ -20,6 +23,8 @@ export function SendToken({ address, network, token, onBack, onSent }: {
   const [preview, setPreview] = useState<Erc20TransferPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [scanNotes, setScanNotes] = useState<string[]>([]);
 
   async function review() {
     setBusy(true);
@@ -56,6 +61,7 @@ export function SendToken({ address, network, token, onBack, onSent }: {
       } catch {
         // Do not misreport a broadcast transaction if local history storage fails.
       }
+      setPreview(null);
       onSent(hash);
     } catch (e) {
       setError(e instanceof Error ? e.message : "The token transfer was not sent.");
@@ -64,72 +70,56 @@ export function SendToken({ address, network, token, onBack, onSent }: {
     }
   }
 
+  function onScanned(data: string): string | null {
+    try {
+      const scan = parseRecipientQr(data);
+      setRecipient(scan.address);
+      setPreview(null);
+      setScanNotes(recipientWarnings(scan, { chainId: network.chainId, chainName: network.name, tokenContract: token.contractAddress }));
+      setScanning(false);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Could not read this QR code.";
+    }
+  }
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.header}>
-        <Pressable onPress={onBack}><Text style={styles.back}>‹ BACK</Text></Pressable>
-        <Text style={styles.heading}>Send {token.symbol}</Text>
-        <View style={{ width: 52 }} />
-      </View>
-      <Text style={styles.body}>Send this ERC-20 token on {network.name}. This contract was added manually and has not been independently verified by TREX.</Text>
-      <Text style={styles.label}>RECIPIENT ADDRESS</Text>
-      <TextInput value={recipient} onChangeText={(v) => { setRecipient(v); setPreview(null); }} autoCapitalize="none" autoCorrect={false} spellCheck={false} placeholder="0x..." placeholderTextColor={theme.colors.muted} style={styles.input} />
-      <Text style={styles.label}>AMOUNT ({token.symbol})</Text>
-      <TextInput value={amount} onChangeText={(v) => { setAmount(v); setPreview(null); }} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={theme.colors.muted} style={styles.input} />
-      {!preview ? (
-        <Pressable onPress={review} disabled={busy || !recipient || !amount} style={[styles.primary, (busy || !recipient || !amount) && styles.disabled]}>
-          <Text style={styles.primaryText}>{busy ? "CHECKING TOKEN AND NETWORK..." : "REVIEW TOKEN TRANSFER"}</Text>
-        </Pressable>
-      ) : (
-        <>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Review transfer</Text>
-            <Text style={styles.label}>TOKEN CONTRACT</Text>
-            <Text selectable style={styles.value}>{preview.contractAddress}</Text>
-            <Text style={styles.label}>RECIPIENT</Text>
-            <Text selectable style={styles.value}>{preview.recipient}</Text>
-            <Text style={styles.label}>TOKEN AMOUNT</Text>
-            <Text style={styles.amountValue}>{preview.amount} {preview.symbol}</Text>
-            <Text style={styles.label}>ESTIMATED NETWORK FEE</Text>
-            <Text style={styles.value}>{Number(preview.networkFee).toFixed(8)} {network.symbol}</Text>
-          </View>
-          <View style={styles.warning}>
-            <Text style={styles.warningTitle}>Unverified contract</Text>
-            <Text style={styles.warningText}>TREX checks the contract code, token balance, decimals, symbol, chain and gas estimate. It does not verify that this token is legitimate or valuable. Verify the contract and recipient independently. Transfers are normally irreversible.</Text>
-          </View>
-          <Pressable onPress={confirmAndSend} disabled={busy} style={[styles.primary, busy && styles.disabled]}>
-            <Text style={styles.primaryText}>{busy ? "AUTHENTICATING AND SENDING..." : "CONFIRM AND SEND"}</Text>
-          </Pressable>
-          <Pressable onPress={() => setPreview(null)} style={styles.secondary}><Text style={styles.secondaryText}>EDIT TRANSFER</Text></Pressable>
-        </>
-      )}
-      {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      <Text style={styles.disclaimer}>TESTNET ONLY · VERIFY TOKEN CONTRACTS YOURSELF</Text>
+    <ScrollView style={ui.screen} contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+      <ScreenHeader kicker="SEND TOKEN" title={`Send ${token.symbol}`} onBack={onBack} />
+      <FadeIn delay={60}>
+        <Text style={ui.body}>Send this ERC-20 token on {network.name}. The contract was added manually and has not been verified by TREX.</Text>
+        <FieldLabel>RECIPIENT ADDRESS</FieldLabel>
+        <AddressField value={recipient} onChangeText={(v) => { setRecipient(v); setPreview(null); setScanNotes([]); }} onScan={() => setScanning(true)} />
+        {scanNotes.map((note) => <WarningPanel key={note} title="Check the scanned code">{note}</WarningPanel>)}
+        <FieldLabel>AMOUNT ({token.symbol})</FieldLabel>
+        <Field value={amount} onChangeText={(v) => { setAmount(v); setPreview(null); }} keyboardType="decimal-pad" placeholder="0.00" />
+        <PrimaryButton label="REVIEW TOKEN TRANSFER" busyLabel="CHECKING TOKEN AND NETWORK…" busy={busy && !preview} disabled={!recipient || !amount} onPress={review} />
+      </FadeIn>
+      {!preview && <ErrorText message={error} />}
+      <Disclaimer>TESTNET ONLY · VERIFY TOKEN CONTRACTS YOURSELF</Disclaimer>
+
+      <BottomSheet visible={!!preview} onClose={() => { if (!busy) setPreview(null); }} dismissable={!busy}>
+        {preview && (
+          <ScrollView>
+            <Text style={ui.sheetKicker}>REVIEW TOKEN TRANSFER</Text>
+            <Text style={ui.sheetTitle}>Review carefully</Text>
+            <Card>
+              <Detail label="TOKEN CONTRACT" value={preview.contractAddress} />
+              <Detail label="RECIPIENT" value={preview.recipient} />
+              <Detail label="TOKEN AMOUNT" value={`${preview.amount} ${preview.symbol}`} emphasis />
+              <Detail label="ESTIMATED NETWORK FEE" value={`${Number(preview.networkFee).toFixed(8)} ${network.symbol}`} />
+              <Detail label="NETWORK" value={`${network.name} · Chain ${network.chainId}`} />
+            </Card>
+            <WarningPanel title="Unverified contract">
+              TREX checks the contract code, token balance, decimals, symbol, chain and gas estimate. It does not verify that this token is legitimate or valuable. Verify the contract and recipient yourself. Transfers are normally irreversible.
+            </WarningPanel>
+            <ErrorText message={error} />
+            <PrimaryButton label="CONFIRM AND SEND" busyLabel="AUTHENTICATING…" busy={busy} onPress={confirmAndSend} />
+            <GhostButton label="EDIT TRANSFER" onPress={() => setPreview(null)} disabled={busy} />
+          </ScrollView>
+        )}
+      </BottomSheet>
+      <QrScanner visible={scanning} title="Scan address" hint="Point the camera at a recipient's address QR or ethereum: payment code." onScan={onScanned} onClose={() => setScanning(false)} />
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background },
-  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 30 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
-  back: { color: theme.colors.primaryBright, fontSize: 10, fontWeight: "900", width: 52 },
-  heading: { color: theme.colors.text, fontSize: 18, fontWeight: "900" },
-  body: { color: theme.colors.muted, fontSize: 11, lineHeight: 18, marginBottom: 18 },
-  label: { color: theme.colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.1, marginTop: 15, marginBottom: 7 },
-  input: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 13, color: theme.colors.text, fontSize: 12 },
-  primary: { backgroundColor: theme.colors.primary, borderRadius: 13, alignItems: "center", paddingVertical: 15, marginTop: 20 },
-  primaryText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
-  disabled: { opacity: 0.45 },
-  card: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 16, padding: 15, marginTop: 20 },
-  cardTitle: { color: theme.colors.text, fontSize: 14, fontWeight: "900" },
-  value: { color: theme.colors.text, fontSize: 10, lineHeight: 16 },
-  amountValue: { color: theme.colors.primaryBright, fontSize: 20, fontWeight: "900" },
-  warning: { backgroundColor: "#2A160B", borderColor: "#6B3B17", borderWidth: 1, borderRadius: 13, padding: 14, marginTop: 14 },
-  warningTitle: { color: theme.colors.warning, fontSize: 10, fontWeight: "900", marginBottom: 6 },
-  warningText: { color: theme.colors.muted, fontSize: 10, lineHeight: 17 },
-  secondary: { alignItems: "center", padding: 14 },
-  secondaryText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
-  error: { color: theme.colors.danger, fontSize: 11, lineHeight: 17, marginTop: 14 },
-  disclaimer: { color: "#8F6B4B", fontSize: 8, textAlign: "center", letterSpacing: 1, marginTop: 28 }
-});

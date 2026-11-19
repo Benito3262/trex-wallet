@@ -36,6 +36,7 @@ import { registerChainSwitcher, setWalletState } from "./src/dapp/walletState";
 import { WalletConnectScreen } from "./src/components/WalletConnectScreen";
 import { disconnectOriginSessions, initWalletConnect } from "./src/walletconnect/service";
 import { pairingUriFromDeepLink } from "./src/walletconnect/namespaces";
+import { appLock } from "./src/wallet/appLock";
 import { getNativeBalance } from "./src/wallet/balances";
 import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
 import { fetchAddressActivity, fetchAddressTokenBalances, type ExplorerActivity } from "./src/wallet/explorerActivity";
@@ -155,11 +156,16 @@ function WalletApp() {
   }), []);
 
   useEffect(() => {
+    const lock = () => {
+      setWalletUnlocked(false);
+      // Locking must also cancel anything waiting for approval.
+      approvalQueue.cancelAll();
+    };
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state !== "active") {
-        setWalletUnlocked(false);
-        // Locking must also cancel anything waiting for approval.
-        approvalQueue.cancelAll();
+      if (state === "active") {
+        if (appLock.onActive()) lock();
+      } else if (appLock.onBackground()) {
+        lock();
       }
     });
     return () => subscription.remove();

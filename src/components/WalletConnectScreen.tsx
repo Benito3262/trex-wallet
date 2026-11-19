@@ -4,6 +4,8 @@ import * as Clipboard from "expo-clipboard";
 import { disconnectSession, getWcState, initWalletConnect, pair, subscribeWc, type WcState } from "../walletconnect/service";
 import { theme } from "../theme";
 import { FadeIn, SpringPressable } from "./motion";
+import { QrScanner } from "./QrScanner";
+import { parseWalletConnectQr } from "../scan/qr";
 
 /** Pair with dApps by pasting a wc: link, and manage active WalletConnect sessions. */
 export function WalletConnectScreen({ onBack, initialUri }: { onBack: () => void; initialUri?: string | null }) {
@@ -11,6 +13,7 @@ export function WalletConnectScreen({ onBack, initialUri }: { onBack: () => void
   const [uri, setUri] = useState(initialUri ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => subscribeWc(setWc), []);
   useEffect(() => { if (wc.status === "idle") initWalletConnect().catch(() => undefined); }, [wc.status]);
@@ -30,6 +33,18 @@ export function WalletConnectScreen({ onBack, initialUri }: { onBack: () => void
     }
   }
 
+  function onScanned(data: string): string | null {
+    try {
+      const pairingUri = parseWalletConnectQr(data);
+      setScanning(false);
+      setUri(pairingUri);
+      void connect(pairingUri);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Could not read this QR code.";
+    }
+  }
+
   async function pasteFromClipboard() {
     try {
       const text = await Clipboard.getStringAsync();
@@ -45,7 +60,7 @@ export function WalletConnectScreen({ onBack, initialUri }: { onBack: () => void
       <FadeIn>
         <Text style={styles.kicker}>WALLETCONNECT</Text>
         <Text style={styles.title}>Connect a dApp</Text>
-        <Text style={styles.intro}>On the site, choose WalletConnect, then "Copy link" (or copy the QR link) and paste it here. Every request still opens a TREX review.</Text>
+        <Text style={styles.intro}>On the site, choose WalletConnect, then scan its QR code or use "Copy link" and paste it here. Every request still opens a TREX review.</Text>
       </FadeIn>
 
       {wc.status === "missing-project-id" ? (
@@ -71,7 +86,8 @@ export function WalletConnectScreen({ onBack, initialUri }: { onBack: () => void
             multiline
           />
           <View style={styles.row}>
-            <Pressable style={styles.secondary} onPress={pasteFromClipboard}><Text style={styles.secondaryText}>PASTE</Text></Pressable>
+            <SpringPressable style={styles.secondary} onPress={() => setScanning(true)} disabled={wc.status === "error"}><Text style={styles.secondaryText}>SCAN QR</Text></SpringPressable>
+            <SpringPressable style={styles.secondary} onPress={pasteFromClipboard}><Text style={styles.secondaryText}>PASTE</Text></SpringPressable>
             <SpringPressable containerStyle={{ flex: 1 }} style={styles.primary} onPress={() => connect()} disabled={busy || wc.pairing || !uri.trim() || wc.status === "error"}>
               {busy || wc.pairing ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>CONNECT</Text>}
             </SpringPressable>
@@ -91,10 +107,11 @@ export function WalletConnectScreen({ onBack, initialUri }: { onBack: () => void
             <Text style={styles.meta} numberOfLines={1}>{session.url}</Text>
             <Text style={styles.meta}>Expires {new Date(session.expiry * 1000).toLocaleDateString()}</Text>
           </View>
-          <Pressable style={styles.secondary} onPress={() => disconnectSession(session.topic).catch(() => undefined)}><Text style={styles.secondaryText}>DISCONNECT</Text></Pressable>
+          <SpringPressable style={styles.secondary} onPress={() => disconnectSession(session.topic).catch(() => undefined)}><Text style={styles.secondaryText}>DISCONNECT</Text></SpringPressable>
         </FadeIn>
       ))}
-      <Text style={styles.footnote}>QR scanning is not built yet; use the site's copy-link option. Mainnet requests can connect but cannot be signed in this test build.</Text>
+      <QrScanner visible={scanning} title="Scan WalletConnect" hint="Scan the WalletConnect QR shown by the dApp. TREX will still ask before connecting." onScan={onScanned} onClose={() => setScanning(false)} />
+      <Text style={styles.footnote}>Requests from connected apps always open a TREX review. Mainnet requests can connect but cannot be signed in this test build.</Text>
     </ScrollView>
   );
 }
