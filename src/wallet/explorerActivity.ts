@@ -76,15 +76,15 @@ export async function fetchAddressActivity(network: EvmNetwork, address: string)
       toAddress,
       timestamp: asTimestamp(item.timestamp),
       direction,
-      kind: "native",
-      status: item.status === "error" || item.result === "error" ? "failed" : "confirmed"
+      kind: "native" as const,
+      status: (item.status === "error" || item.result === "error" ? "failed" : "confirmed") as "failed" | "confirmed"
     };
   }).filter((item) => /^0x[0-9a-f]{64}$/i.test(item.hash));
 
   const tokens: ExplorerActivity[] = tokenItems.map((item: any) => {
     const fromAddress = asAddress(item.from);
     const toAddress = asAddress(item.to);
-    const direction = toAddress.toLowerCase() === normalized ? "received" : "sent";
+    const direction: "received" | "sent" = toAddress.toLowerCase() === normalized ? "received" : "sent";
     const token = item.token ?? {};
     const decimals = Number.isInteger(Number(token.decimals)) ? Number(token.decimals) : 18;
     let amount = "0";
@@ -99,8 +99,8 @@ export async function fetchAddressActivity(network: EvmNetwork, address: string)
       toAddress,
       timestamp: asTimestamp(item.timestamp),
       direction,
-      kind: "token",
-      status: "confirmed",
+      kind: "token" as const,
+      status: "confirmed" as const,
       tokenAddress: asAddress(token.address)
     };
   }).filter((item) => /^0x[0-9a-f]{64}$/i.test(item.hash));
