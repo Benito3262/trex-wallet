@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Keyboard, Pressable, StatusBar, StyleSheet, Text, TextInput, View } from "react-native";
-import { WebView, type WebViewNavigation } from "react-native-webview";
+import WebView, { type WebViewNavigation } from "react-native-webview";
 import { theme } from "../theme";
 
 const HOME = "https://www.google.com";
