@@ -55,7 +55,7 @@ export function WalletManager({ onBack }: { onBack: () => void }) {
       <View style={styles.card}>
         <Text style={styles.label}>PRIVATE KEY</Text>
         <Text style={styles.warning}>Anyone with this key can control your assets. Only reveal it in a private place. Never send it to support or paste it into websites.</Text>
-        <View style={styles.keyBox}><Text selectable={...(revealed ? styles.key : styles.masked)}>{revealed ? (privateKey || "Not available") : "•••• •••• •••• •••• •••• ••••"}</Text></View>
+        <View style={styles.keyBox}><Text selectable style={revealed ? styles.key : styles.masked}>{revealed ? (privateKey || "Not available") : "•••• •••• •••• •••• •••• ••••"}</Text></View>
         <Pressable style={styles.primary} onPress={() => { setMessage(""); setRevealed((value) => !value); }} disabled={!privateKey || busy}><Text style={styles.primaryText}>{revealed ? "HIDE PRIVATE KEY" : "REVEAL PRIVATE KEY"}</Text></Pressable>
         {revealed && <Pressable style={styles.secondary} onPress={() => copy(privateKey, "Private key")}><Text style={styles.secondaryText}>COPY PRIVATE KEY</Text></Pressable>}
       </View>
