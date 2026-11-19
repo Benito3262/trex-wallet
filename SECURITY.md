@@ -1,6 +1,6 @@
 # Security model and release gates
 
-TREX Wallet is an early-stage, non-custodial Android wallet. The current test build can create/import an EVM wallet, store its recovery phrase in authenticated device secure storage, read native and manually added ERC-20 balances, receive assets, and submit native-asset or ERC-20 transfers on Sepolia testnets. It has not been independently audited and must not be used to store meaningful assets.
+TREX Wallet is an early-stage, non-custodial Android wallet. The current test build manages multiple EVM wallets (recovery phrases, derived HD accounts and imported private keys) in authenticated device secure storage, reads balances, connects to dApps through an in-app browser and WalletConnect, and signs only on testnets (Sepolia, Base Sepolia, Robinhood Chain testnet). Mainnet signing is blocked in code. It has not been independently audited and must not be used to store meaningful assets.
 
 ## Implemented protections
 
@@ -11,6 +11,10 @@ TREX Wallet is an early-stage, non-custodial Android wallet. The current test bu
 - The transaction review checks recipient address syntax, expected chain ID, current balance, estimated gas, and whether a native-asset recipient is a contract before signing.
 - Transaction history stores public transaction metadata only, never secret material.
 - New installs default to Base Sepolia testnet.
+- Each secret (phrase or private key) is stored in its own SecureStore entry with `requireAuthentication`; the public account registry holds addresses and names only.
+- dApp requests (browser and WalletConnect) go through one FIFO approval queue. Each signature or transaction shows a review sheet and requires biometric unlock, so a page cannot sign automatically. Pending requests are cancelled when the app is backgrounded or the browser navigates away.
+- Only HTTPS (or localhost) pages can use the injected provider; `eth_sign` and other raw-hash signing methods are refused.
+- Reviews simulate with `eth_call`, check balance plus fee, flag contracts vs EOAs, first interactions, unlimited approvals, `setApprovalForAll`, Permit/Permit2 and chain mismatch, and block mainnet signing, insufficient funds and mismatched chains. Critical risks need an explicit acknowledgement.
 - Manual ERC-20 token transfers are limited to Sepolia testnets and re-check contract code, symbol, decimals, token balance, native gas balance, and chain ID before local signing.
 
 ## Non-negotiable rules
@@ -28,10 +32,11 @@ TREX Wallet is an early-stage, non-custodial Android wallet. The current test bu
 
 - Biometric enrollment is required. A recovery phrase remains essential if the device is lost, damaged, or biometric keys are invalidated.
 - Public RPC providers can observe the wallet address and network activity.
-- ERC-20 support is limited to manual token contracts and simple transfer calls on Sepolia testnets. Arbitrary contract calls and ERC-20 approvals are not supported.
+- Contract calls from dApps are decoded only for common approval and permit patterns; other calldata is shown raw. Simulation is best-effort and may be unavailable.
 - Native and ERC-20 transfer preflight is not a scam detector. It cannot prove that a recipient belongs to the intended person or that a token is legitimate.
 - A transaction marked submitted is not necessarily confirmed or successful.
-- The app does not yet implement WalletConnect, arbitrary contract interactions, swaps, bridging, or a production-grade security intelligence engine.
+- Open approvals tracks only approvals made through TREX. There is no threat-intelligence feed, no swaps or bridging, and no WalletConnect QR scanning.
+- None of the browser, WalletConnect, biometric or migration flows has been tested on a physical device yet.
 
 ## Required security work before real funds
 

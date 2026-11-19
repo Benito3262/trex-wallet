@@ -8,27 +8,30 @@ TREX Wallet is a personal, non-custodial EVM wallet for Android. Its design prio
 
 ## Implemented in this repository
 
-- Android app foundation using Expo SDK 58, React Native, and TypeScript.
-- Wallet creation and 12-word recovery phrase display.
-- Recovery-word confirmation before saving a newly generated wallet.
-- Recovery phrase import and EVM address derivation using the BIP-44 path.
-- Authenticated local storage through Expo SecureStore, with biometric enrollment required.
-- Screenshot and screen-recording protection during wallet onboarding.
-- Read-only native balance lookup on supported networks.
-- Receive address QR code and copy action.
-- Manual ERC-20 contract import, read-only token balances, and testnet-only token transfers.
-- Native-asset transfer review, gas estimation, chain-ID check, biometric unlock, and local signing.
-- Local SQLite transaction history containing public transaction metadata only.
-- Offline calldata inspector for common ERC-20 approvals, EIP-2612 permits, Permit2 approvals, operator-wide approvals and transfers, with risk levels and unit tests; not connected to signing.
-- Unit tests for address derivation and invalid phrase handling.
+- Android app on Expo SDK 58, React Native 0.88 and TypeScript, with the TREX espresso/amber branding (official logo for the icon, adaptive icon, splash, onboarding, unlock and header).
+- **Multiple wallets:** create or restore a recovery phrase, import a private key, derive more HD accounts (`m/44'/60'/0'/0/i`), switch, rename and remove accounts (with confirmation). Every secret sits in its own biometric-gated SecureStore entry. Single-wallet installs from earlier builds are migrated in place; the old secret is never rewritten.
+- **In-app dApp browser:** an injected EIP-1193 provider that announces itself through EIP-6963. It supports `eth_requestAccounts`, `eth_accounts`, `eth_chainId`, `wallet_switchEthereumChain`, `personal_sign`, `eth_signTypedData_v4` and `eth_sendTransaction`, and emits `accountsChanged`/`chainChanged`. Sites must ask before they connect, and only HTTPS (or localhost) origins can reach the wallet. A Connected sites screen lets you disconnect them. `eth_sign` and other raw signing methods are refused.
+- **WalletConnect v2** through Reown WalletKit: paste a `wc:` link or open a `trexwallet://wc?uri=` deep link, approve the session, then manage or disconnect sessions. QR scanning is not built yet.
+- **Review sheets for every request.** Each signature or transaction opens a review and needs biometrics, so a page can never sign without you. Reviews include:
+  - an `eth_call` simulation, a gas estimate and a balance-plus-fee check;
+  - contract vs. EOA detection and first-interaction detection;
+  - chain-mismatch blocking;
+  - decoding of unlimited ERC-20 approvals, `setApprovalForAll`, EIP-2612/DAI Permit and Permit2 (spender, amount, expiry), plus SIWE domain checks.
+- **Self-cleaning approvals:** an unlimited approval can be swapped for an exact amount before you sign. An Open approvals screen reads live allowances for approvals made through TREX and revokes them with one tap, through the same review.
+- Native and ERC-20 transfers on testnets, receive QR, and local SQLite history that holds public metadata only.
+- Jest tests for HD derivation and account storage logic, migration, provider routing, the injected script, approval rewriting, Permit/Permit2 decoding, review rules and WalletConnect URIs and namespaces.
 
 ## Networks
 
-Mainnets: Ethereum, Base, BNB Smart Chain, Arbitrum One, Optimism, and Polygon.
+Mainnets: Ethereum, Base, BNB Smart Chain, Arbitrum One, Optimism and Polygon. **Mainnet signing is disabled.** You can read balances on a mainnet and connect dApps there, but every mainnet transaction, typed-data or message signature is blocked with an explanation.
 
-Testnets: Ethereum Sepolia and Base Sepolia. **New installs default to Base Sepolia** to reduce the risk of accidental mainnet spending while testing. Native transfers are currently restricted in code to Ethereum Sepolia and Base Sepolia; mainnet send actions are disabled.
+Testnets where signing is enabled: Ethereum Sepolia, Base Sepolia and Robinhood Chain testnet (chain ID 46630, RPC `https://rpc.testnet.chain.robinhood.com`). New installs default to Base Sepolia.
 
-Public RPC endpoints are configured in the source as fallbacks. You can override them with the variables in `.env.example`. RPC providers can observe the public wallet address and network requests. Values prefixed with `EXPO_PUBLIC_` are bundled into the app; never put private API credentials, seed phrases, or private keys in them.
+Public RPC endpoints are configured in the source as fallbacks. You can override them with the variables in `.env.example`. RPC providers can see your public address and network requests. Values prefixed with `EXPO_PUBLIC_` are bundled into the app, so never put private API credentials, seed phrases or private keys in them.
+
+## WalletConnect project ID
+
+WalletConnect reads the public Reown project ID from `EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID`. The APK workflow uses the repository variable of that name when it is set, and otherwise falls back to the project's public ID. Local builds without the variable still run: the WalletConnect screen says a project ID is needed.
 
 ## Run locally
 
@@ -53,14 +56,17 @@ npx expo run:android
 
 Every qualifying push to `main` triggers the GitHub Actions workflow **TREX Wallet Android APK**. When it succeeds, open the repository's Actions tab, open the completed run, and download the `trex-wallet-debug-apk` artifact. This is a debug-signed test APK, not a production release.
 
-## Security boundaries
+## Security boundaries and honest limitations
 
-- Recovery phrases and private keys must never be sent to an API, analytics service, issue, or AI assistant.
-- Never commit signing keys, seed phrases, private keys, or secrets.
-- A biometric prompt is an access gate, not a substitute for secure vault encryption.
-- Native transfer preflight checks address format, chain ID, balance, and a gas estimate. It does not verify recipient ownership or detect every scam.
-- A submitted transaction is not necessarily confirmed.
-- The current app supports manually added ERC-20 balances and testnet-only ERC-20 transfers. It does not support token approvals, arbitrary contract calls, WalletConnect, swaps, or bridging.
-- Mainnet use requires thorough device testing, recovery testing, transaction test vectors, and independent security review.
+- This is an **early test build**. It is not audited and not finished. Use testnet funds only.
+- Recovery phrases and private keys never leave the device. Never send them to an API, issue tracker or AI assistant.
+- Simulation and risk checks are **best-effort**:
+  - They depend on public RPC responses, which can be wrong or unavailable.
+  - They do not decode every contract.
+  - They cannot prove that a site or recipient is honest.
+  - "Simulation unavailable" means the check did not run. It does not mean the request is safe.
+- Open approvals only lists approvals made through TREX. It is not a full on-chain allowance scan.
+- The app has **not been tested on a physical device yet**. CI checks types, unit tests and that the APK builds, but the WebView provider, WalletConnect pairing, biometrics and migration need hands-on testing.
+- WalletConnect one-click auth (`session_authenticate`) is rejected, so dApps fall back to a normal session. QR scanning, swaps and bridging are not implemented.
 
 See [SECURITY.md](SECURITY.md) and [ROADMAP.md](ROADMAP.md).

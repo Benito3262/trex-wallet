@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   detailLabel: { color: theme.colors.muted, fontSize: 8, fontWeight: "900", letterSpacing: 1, marginTop: 10, marginBottom: 5 },
   detailValue: { color: theme.colors.text, fontSize: 10, lineHeight: 16 },
   amountValue: { color: theme.colors.primaryBright, fontSize: 20, fontWeight: "900" },
-  warning: { backgroundColor: "#211A16", borderColor: "#51402A", borderWidth: 1, borderRadius: 13, padding: 14, marginTop: 14 },
+  warning: { backgroundColor: "#2A160B", borderColor: "#6B3B17", borderWidth: 1, borderRadius: 13, padding: 14, marginTop: 14 },
   warningTitle: { color: theme.colors.warning, fontSize: 10, fontWeight: "900", marginBottom: 6 },
   warningText: { color: theme.colors.muted, fontSize: 10, lineHeight: 17 },
   editButton: { alignItems: "center", padding: 14 },
@@ -156,5 +156,5 @@ const styles = StyleSheet.create({
   successIcon: { color: theme.colors.success, fontSize: 34, fontWeight: "900", marginBottom: 12 },
   successTitle: { color: theme.colors.text, fontSize: 18, fontWeight: "900", marginBottom: 9 },
   error: { color: theme.colors.danger, fontSize: 11, lineHeight: 17, marginTop: 14 },
-  disclaimer: { color: "#766C87", fontSize: 8, textAlign: "center", letterSpacing: 1, marginTop: 28 }
+  disclaimer: { color: "#8F6B4B", fontSize: 8, textAlign: "center", letterSpacing: 1, marginTop: 28 }
 });

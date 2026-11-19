@@ -27,7 +27,7 @@ export function ReceiveAddress({ address, network, onBack }: {
       <Text style={styles.body}>Only send assets on a network supported by this address. Sending on the wrong network may result in permanent loss.</Text>
       <View style={styles.qrCard}>
         <View style={styles.qrFrame}>
-          <QRCode value={address} size={190} backgroundColor="#FFFFFF" color="#090812" />
+          <QRCode value={address} size={190} backgroundColor="#FFFFFF" color="#100804" />
         </View>
         <Text style={styles.network}>{network.name} · Chain {network.chainId}</Text>
         <Text selectable style={styles.address}>{address}</Text>
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   address: { color: theme.colors.text, fontSize: 11, lineHeight: 18, textAlign: "center", marginTop: 12 },
   copyButton: { width: "100%", backgroundColor: theme.colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 18 },
   copyText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
-  warning: { marginTop: 16, padding: 15, backgroundColor: "#211A16", borderColor: "#51402A", borderWidth: 1, borderRadius: 14 },
+  warning: { marginTop: 16, padding: 15, backgroundColor: "#2A160B", borderColor: "#6B3B17", borderWidth: 1, borderRadius: 14 },
   warningTitle: { color: theme.colors.warning, fontSize: 11, fontWeight: "900", marginBottom: 6 },
   warningText: { color: theme.colors.muted, fontSize: 10, lineHeight: 17 }
 });

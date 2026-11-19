@@ -117,11 +117,11 @@ const styles = StyleSheet.create({
   tokenBalance: { color: theme.colors.text, fontSize: 22, fontWeight: "900", marginTop: 18 },
   address: { color: theme.colors.muted, fontSize: 9, lineHeight: 15, marginTop: 10 },
   meta: { color: theme.colors.muted, fontSize: 9, marginTop: 8 },
-  warning: { backgroundColor: "#211A16", borderColor: "#51402A", borderWidth: 1, borderRadius: 13, padding: 14, marginTop: 14 },
+  warning: { backgroundColor: "#2A160B", borderColor: "#6B3B17", borderWidth: 1, borderRadius: 13, padding: 14, marginTop: 14 },
   warningTitle: { color: theme.colors.warning, fontSize: 10, fontWeight: "900", marginBottom: 6 },
   warningText: { color: theme.colors.muted, fontSize: 10, lineHeight: 17 },
   secondary: { alignItems: "center", padding: 14 },
   secondaryText: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
   error: { color: theme.colors.danger, fontSize: 11, lineHeight: 17, marginTop: 14 },
-  disclaimer: { color: "#766C87", fontSize: 8, textAlign: "center", letterSpacing: 1, marginTop: 28 }
+  disclaimer: { color: "#8F6B4B", fontSize: 8, textAlign: "center", letterSpacing: 1, marginTop: 28 }
 });
