@@ -40,6 +40,14 @@
             "backgroundColor": "#100804"
           }
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "# WalletConnect react-native-compat (Yttrium uniffi bindings over JNA)\n-dontwarn java.awt.**\n-keep class com.sun.jna.** { *; }\n-keepclassmembers class * extends com.sun.jna.** { public *; }\n-keep class uniffi.** { *; }\n-keep class com.walletconnect.** { *; }\n-keep class com.reown.** { *; }"
+          }
+        }
       ]
     ],
     "backgroundColor": "#100804"
