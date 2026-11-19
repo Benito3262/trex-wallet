@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { EvmNetwork } from "../config/networks";
 import { theme } from "../theme";
-import { loadWallet } from "../wallet/vault";
+import { unlockAccount } from "../wallet/vault";
 import { prepareNativeTransfer, sendNativeTransfer } from "../wallet/transactions";
 import type { NativeTransferPreview } from "../wallet/transactions";
 import { recordTransaction } from "../wallet/history";
@@ -38,8 +38,8 @@ export function SendNative({ address, network, onBack, onSent }: {
     setBusy(true);
     setError("");
     try {
-      const wallet = await loadWallet();
-      if (!wallet) throw new Error("Wallet not found. Restore it from your recovery phrase.");
+      const { signer: wallet } = await unlockAccount(undefined, "Authenticate to sign this transfer");
+      if (wallet.address.toLowerCase() !== address.toLowerCase()) throw new Error("The active account changed. Reopen this screen and try again.");
       const txHash = await sendNativeTransfer(network, wallet, recipient, amount);
       try {
         await recordTransaction({

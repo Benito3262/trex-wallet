@@ -9,9 +9,11 @@ import {
   TextInput,
   View
 } from "react-native";
-import { createWalletIdentity, deriveWalletFromPhrase } from "../wallet/identity";
-import { getWalletAddress, saveWallet } from "../wallet/vault";
+import { createWalletIdentity } from "../wallet/identity";
+import { addMnemonicWallet, addPrivateKeyWallet, restoreMnemonicWallet } from "../wallet/vault";
+import { addressFromPrivateKey, deriveHdAccount } from "../wallet/accounts";
 import { theme } from "../theme";
+import { BrandLogo, Wordmark } from "./brand";
 import { usePreventScreenCapture } from "expo-screen-capture";
 import * as LocalAuthentication from "expo-local-authentication";
 
@@ -19,9 +21,11 @@ type Props = {
   onComplete: (address: string) => void;
   onCancel: () => void;
   initialMode?: "choose" | "import";
+  /** setup: first wallet; add: another wallet next to existing ones; restore: re-protect an existing phrase. */
+  purpose?: "setup" | "add" | "restore";
 };
 
-type Step = "choose" | "recovery" | "verify" | "import" | "saving";
+type Step = "choose" | "recovery" | "verify" | "import" | "importKey" | "saving";
 
 const buttonStyle = {
   backgroundColor: theme.colors.primary,
@@ -30,11 +34,12 @@ const buttonStyle = {
   alignItems: "center" as const
 };
 
-export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" }: Props) {
+export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose", purpose = "setup" }: Props) {
   usePreventScreenCapture();
   const [step, setStep] = useState<Step>(initialMode === "import" ? "import" : "choose");
   const [mnemonic, setMnemonic] = useState("");
   const [address, setAddress] = useState("");
+  const [privateKeyInput, setPrivateKeyInput] = useState("");
   const [challengeAnswers, setChallengeAnswers] = useState(["", ""]);
   const [error, setError] = useState("");
 
@@ -57,7 +62,7 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" 
     }
   }
 
-  async function persistWallet(phrase: string, walletAddress: string, derivationPath: string, retryStep: Step) {
+  async function persistWallet(secret: { kind: "mnemonic"; value: string } | { kind: "privateKey"; value: string }, retryStep: Step) {
     setStep("saving");
     setError("");
     try {
@@ -66,14 +71,14 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" 
       if (!biometricHardware || !biometricEnrolled) {
         throw new Error("Set up fingerprint or face unlock on this Android device before creating or importing a TREX wallet.");
       }
-      await saveWallet({
-        mnemonic: phrase,
-        address: walletAddress,
-        derivationPath,
-        createdAt: new Date().toISOString()
-      });
+      const account = secret.kind === "privateKey"
+        ? await addPrivateKeyWallet(secret.value)
+        : purpose === "restore"
+          ? await restoreMnemonicWallet(secret.value)
+          : await addMnemonicWallet(secret.value);
       setMnemonic("");
-      onComplete(walletAddress);
+      setPrivateKeyInput("");
+      onComplete(account.address);
     } catch (e) {
       setStep(retryStep);
       setError(e instanceof Error ? e.message : "Secure storage failed. Your wallet was not saved.");
@@ -88,19 +93,24 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" 
       setError("Those words do not match. Check your written recovery phrase and try again.");
       return;
     }
-    void persistWallet(mnemonic, address, "m/44'/60'/0'/0/0", "verify");
+    void persistWallet({ kind: "mnemonic", value: mnemonic }, "verify");
   }
 
   async function importWallet() {
     try {
-      const derived = deriveWalletFromPhrase(mnemonic);
-      const existingAddress = await getWalletAddress();
-      if (existingAddress && existingAddress.toLowerCase() !== derived.address.toLowerCase()) {
-        throw new Error("This phrase derives a different address from the wallet already stored on this device. Check that you entered the original recovery phrase.");
-      }
-      void persistWallet(mnemonic.trim().replace(/\s+/g, " "), derived.address, derived.derivationPath, "import");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "That recovery phrase is invalid. Check all words and their order.");
+      deriveHdAccount(mnemonic, 0);
+      void persistWallet({ kind: "mnemonic", value: mnemonic }, "import");
+    } catch {
+      setError("That recovery phrase is invalid. Check all words and their order.");
+    }
+  }
+
+  function importPrivateKey() {
+    try {
+      addressFromPrivateKey(privateKeyInput);
+      void persistWallet({ kind: "privateKey", value: privateKeyInput }, "importKey");
+    } catch {
+      setError("That private key is invalid. It must be 64 hexadecimal characters.");
     }
   }
 
@@ -108,19 +118,25 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" 
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.topRow}>
-          <Text style={styles.brand}>TREX<Text style={{ color: theme.colors.primaryBright }}>.</Text></Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><BrandLogo size={34} glow={false} /><Wordmark height={22} tagline /></View>
           <Pressable onPress={onCancel}><Text style={styles.cancel}>CANCEL</Text></Pressable>
         </View>
 
         {step === "choose" && (
           <>
+            {purpose === "setup" && <BrandLogo size={128} style={{ alignSelf: "center", marginBottom: 22 }} />}
             <Text style={styles.kicker}>YOUR KEYS. YOUR CONTROL.</Text>
-            <Text style={styles.title}>Set up your wallet</Text>
-            <Text style={styles.body}>Create a new wallet or restore an existing EVM wallet with its recovery phrase.</Text>
+            <Text style={styles.title}>{purpose === "add" ? "Add another wallet" : "Set up your wallet"}</Text>
+            <Text style={styles.body}>{purpose === "add" ? "Create a new recovery phrase or import one you already have. Each wallet is protected separately by your device biometrics." : "Create a new wallet or restore an existing EVM wallet with its recovery phrase."}</Text>
             <Pressable style={buttonStyle} onPress={startCreate}><Text style={styles.primaryText}>Create new wallet</Text></Pressable>
             <Pressable style={styles.secondaryButton} onPress={() => { setMnemonic(""); setError(""); setStep("import"); }}>
               <Text style={styles.secondaryText}>Import recovery phrase</Text>
             </Pressable>
+            {purpose === "add" && (
+              <Pressable style={styles.secondaryButton} onPress={() => { setPrivateKeyInput(""); setError(""); setStep("importKey"); }}>
+                <Text style={styles.secondaryText}>Import private key</Text>
+              </Pressable>
+            )}
             <View style={styles.notice}><Text style={styles.noticeTitle}>Important</Text><Text style={styles.noticeText}>TREX Wallet never needs you to send your recovery phrase to anyone. Anyone who has it can control your funds.</Text></View>
           </>
         )}
@@ -189,6 +205,28 @@ export function WalletOnboarding({ onComplete, onCancel, initialMode = "choose" 
           </>
         )}
 
+        {step === "importKey" && (
+          <>
+            <Text style={styles.kicker}>IMPORT ONE ACCOUNT</Text>
+            <Text style={styles.title}>Import private key</Text>
+            <Text style={styles.body}>A private key controls exactly one account. It is checked on this device and stored behind your biometrics. TREX cannot derive more accounts from it.</Text>
+            <TextInput
+              value={privateKeyInput}
+              onChangeText={setPrivateKeyInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              autoComplete="off"
+              importantForAutofill="no"
+              secureTextEntry
+              placeholder="0x… (64 hexadecimal characters)"
+              placeholderTextColor={theme.colors.muted}
+              style={[styles.input, { marginBottom: 16 }]}
+            />
+            <Pressable style={buttonStyle} onPress={importPrivateKey}><Text style={styles.primaryText}>Validate and protect key</Text></Pressable>
+          </>
+        )}
+
         {step === "saving" && (
           <View style={styles.saving}>
             <Text style={styles.title}>Protecting your wallet</Text>
@@ -228,5 +266,5 @@ const styles = StyleSheet.create({
   phraseInput: { minHeight: 125, textAlignVertical: "top", marginBottom: 16 },
   saving: { flex: 1, justifyContent: "center" },
   error: { color: theme.colors.danger, fontSize: 11, lineHeight: 17, marginTop: 15 },
-  disclaimer: { color: "#766C87", fontSize: 8, textAlign: "center", letterSpacing: 1.1, paddingTop: 28, paddingBottom: 10 }
+  disclaimer: { color: "#8F6B4B", fontSize: 8, textAlign: "center", letterSpacing: 1.1, paddingTop: 28, paddingBottom: 10 }
 });

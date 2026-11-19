@@ -21,7 +21,10 @@ import { WalletOnboarding } from "./src/components/WalletOnboarding";
 import { WalletUnlock } from "./src/components/WalletUnlock";
 import { WalletManager } from "./src/components/WalletManager";
 import { DappBrowser } from "./src/components/DappBrowser";
-import { getWalletAddress } from "./src/wallet/vault";
+import { loadRegistry, setActiveAccount, subscribeRegistry } from "./src/wallet/vault";
+import { activeAccount, type AccountRegistry } from "./src/wallet/accounts";
+import { BrandLogo, Wordmark } from "./src/components/brand";
+import { BottomSheet, FadeIn } from "./src/components/motion";
 import { getNativeBalance } from "./src/wallet/balances";
 import { refreshRecentTransactions, type WalletTransaction } from "./src/wallet/history";
 import { fetchAddressActivity, fetchAddressTokenBalances, type ExplorerActivity } from "./src/wallet/explorerActivity";
@@ -86,6 +89,10 @@ export default function App() {
   const [selectedToken, setSelectedToken] = useState<TokenMetadata | null>(null);
   const [networkPickerOpen, setNetworkPickerOpen] = useState(false);
   const [walletManagerOpen, setWalletManagerOpen] = useState(false);
+  const [addWalletOpen, setAddWalletOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [registry, setRegistry] = useState<AccountRegistry | null>(null);
+  const currentAccount = registry ? activeAccount(registry) : undefined;
   const screenMotion = useRef(new Animated.Value(1)).current;
   const network = useMemo(() => NETWORKS[networkIndex] ?? DEFAULT_NETWORK, [networkIndex]);
 
@@ -153,8 +160,14 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
-    getWalletAddress().then((address) => { if (mounted && address) setWalletAddress(address); }).catch(() => undefined).finally(() => { if (mounted) setBooting(false); });
-    return () => { mounted = false; };
+    loadRegistry().then((loaded) => {
+      if (!mounted || !loaded) return;
+      setRegistry(loaded);
+      const address = activeAccount(loaded)?.address;
+      if (address) setWalletAddress(address);
+    }).catch(() => undefined).finally(() => { if (mounted) setBooting(false); });
+    const unsubscribe = subscribeRegistry((next) => { if (mounted) setRegistry(next); });
+    return () => { mounted = false; unsubscribe(); };
   }, []);
 
   if (booting) {
@@ -162,9 +175,8 @@ export default function App() {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
         <View style={styles.splash}>
-          <View style={styles.splashMark}><Text style={styles.splashMarkText}>T</Text></View>
-          <Text style={styles.splashBrand}>TREX<Text style={{ color: theme.colors.primaryBright }}>.</Text></Text>
-          <Text style={styles.splashCaption}>YOUR EVM WALLET</Text>
+          <BrandLogo size={132} />
+          <View style={{ marginTop: 18 }}><Wordmark height={34} tagline /></View>
           <ActivityIndicator size="small" color={theme.colors.primaryBright} style={{ marginTop: 30 }} />
           <Text style={styles.splashStatus}>SECURING YOUR SESSION</Text>
         </View>
@@ -197,7 +209,27 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
-        <WalletManager onBack={() => setWalletManagerOpen(false)} />
+        <WalletManager
+          onBack={() => setWalletManagerOpen(false)}
+          onAddWallet={() => { setWalletManagerOpen(false); setAddWalletOpen(true); }}
+          onActiveChanged={(address) => {
+            setWalletAddress(address);
+            if (!address) { setWalletManagerOpen(false); setWalletUnlocked(false); setTab("Wallet"); }
+          }}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (addWalletOpen && walletAddress) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <WalletOnboarding
+          purpose="add"
+          onCancel={() => { setAddWalletOpen(false); setWalletManagerOpen(true); }}
+          onComplete={(address) => { setWalletAddress(address); setAddWalletOpen(false); setWalletManagerOpen(true); }}
+        />
       </SafeAreaView>
     );
   }
@@ -244,6 +276,7 @@ export default function App() {
         <StatusBar style="light" />
         <WalletOnboarding
           initialMode={restoreMode ? "import" : "choose"}
+          purpose={restoreMode ? "restore" : "setup"}
           onCancel={() => { setSetupOpen(false); setRestoreMode(false); }}
           onComplete={(address) => { setWalletAddress(address); setWalletUnlocked(true); setSetupOpen(false); setRestoreMode(false); setTab("Wallet"); }}
         />
@@ -275,13 +308,43 @@ export default function App() {
         </Pressable>
       </Modal>
 
+      <BottomSheet visible={switcherOpen} onClose={() => setSwitcherOpen(false)}>
+        <Text style={styles.modalTitle}>Switch account</Text>
+        <ScrollView style={{ maxHeight: 360, marginTop: 10 }}>
+          {registry?.accounts.map((account) => (
+            <Pressable
+              key={account.id}
+              style={[styles.networkOption, account.id === currentAccount?.id && styles.networkOptionActive]}
+              onPress={() => {
+                setActiveAccount(account.id).then((next) => setWalletAddress(activeAccount(next)?.address ?? null)).catch(() => undefined);
+                setSwitcherOpen(false);
+              }}
+            >
+              <View style={styles.networkOptionCopy}>
+                <Text style={styles.networkOptionName}>{account.name}</Text>
+                <Text style={styles.networkOptionMeta}>{account.address.slice(0, 10)}…{account.address.slice(-6)} · {account.hdIndex !== null ? `HD #${account.hdIndex}` : "Imported key"}</Text>
+              </View>
+              {account.id === currentAccount?.id && <Text style={styles.networkSelected}>ACTIVE</Text>}
+            </Pressable>
+          ))}
+        </ScrollView>
+        <Pressable style={styles.sheetButton} onPress={() => { setSwitcherOpen(false); setWalletManagerOpen(true); }}>
+          <Text style={styles.sheetButtonText}>MANAGE, ADD OR REMOVE ACCOUNTS</Text>
+        </Pressable>
+      </BottomSheet>
+
         <View style={styles.header}>
-          <View>
-            <Text style={styles.brand}>TREX<Text style={styles.brandAccent}>.</Text></Text>
-            <Text style={styles.brandCaption}>YOUR EVM WALLET</Text>
+          <View style={styles.brandRow}>
+            <BrandLogo size={34} glow={false} />
+            <View>
+              <Wordmark height={22} />
+              <Text style={styles.brandCaption}>YOUR WEB3 WALLET</Text>
+            </View>
           </View>
           <View style={styles.headerActions}>
-          <Pressable style={styles.accountButton} onPress={() => setWalletManagerOpen(true)} disabled={!walletAddress}><Text style={styles.accountButtonText}>ACCOUNT</Text></Pressable>
+          <Pressable style={styles.accountButton} onPress={() => setSwitcherOpen(true)} disabled={!walletAddress} accessibilityLabel="Switch account">
+            <Text style={styles.accountButtonText} numberOfLines={1}>{currentAccount ? currentAccount.name.toUpperCase() : "ACCOUNT"} ⌄</Text>
+          </Pressable>
           <Pressable style={styles.networkPill} onPress={() => setNetworkPickerOpen(true)}>
             <View style={styles.networkDot} />
             <Text style={styles.networkText}>{network.shortName}</Text>
@@ -452,7 +515,10 @@ const styles = StyleSheet.create({
   brandAccent: { color: theme.colors.primaryBright },
   brandCaption: { color: theme.colors.muted, fontSize: 8, fontWeight: "700", letterSpacing: 2.1, marginTop: -2 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  accountButton: { borderColor: theme.colors.border, borderWidth: 1, borderRadius: 30, paddingVertical: 10, paddingHorizontal: 11 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  sheetButton: { backgroundColor: theme.colors.primary, borderRadius: 14, alignItems: "center", padding: 14, marginTop: 14 },
+  sheetButtonText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  accountButton: { maxWidth: 130, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 30, paddingVertical: 10, paddingHorizontal: 11 },
   accountButtonText: { color: theme.colors.primaryBright, fontSize: 8, fontWeight: "900", letterSpacing: 0.8 },
   networkPill: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: 30, paddingVertical: 10, paddingHorizontal: 13 },
   networkDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: theme.colors.success },

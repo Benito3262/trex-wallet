@@ -1,14 +1,12 @@
 import {
-  HDNodeWallet,
   JsonRpcProvider,
-  Mnemonic,
+  type BaseWallet,
   formatEther,
   parseEther,
   isAddress,
   type FeeData
 } from "ethers";
 import { assertSigningAllowed, rpcUrlFor, type EvmNetwork } from "../config/networks";
-import type { StoredWallet } from "./vault";
 
 function assertTestnetSendingEnabled(network: EvmNetwork) {
   assertSigningAllowed(network.chainId);
@@ -115,7 +113,7 @@ export async function prepareNativeTransfer(
  */
 export async function sendNativeTransfer(
   network: EvmNetwork,
-  storedWallet: StoredWallet,
+  wallet: BaseWallet,
   recipient: string,
   amount: string
 ): Promise<string> {
@@ -125,11 +123,7 @@ export async function sendNativeTransfer(
   const provider = providerFor(network);
   try {
     await assertExpectedChain(provider, network);
-    const mnemonic = Mnemonic.fromPhrase(storedWallet.mnemonic);
-    const signer = HDNodeWallet.fromMnemonic(mnemonic, storedWallet.derivationPath).connect(provider);
-    if (signer.address.toLowerCase() !== storedWallet.address.toLowerCase()) {
-      throw new Error("The protected wallet does not match its saved public address.");
-    }
+    const signer = wallet.connect(provider);
 
     const [gasLimit, feeData, balance] = await Promise.all([
       provider.estimateGas({ from: signer.address, to: recipient, value }),

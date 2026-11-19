@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { loadWallet } from "../wallet/vault";
+import { unlockAccount } from "../wallet/vault";
 import { theme } from "../theme";
+import { BrandLogo, Wordmark } from "./brand";
+import { FadeIn } from "./motion";
 
 export function WalletUnlock({ onUnlocked, onRestore }: { onUnlocked: (address: string) => void; onRestore: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -12,12 +14,8 @@ export function WalletUnlock({ onUnlocked, onRestore }: { onUnlocked: (address: 
     setBusy(true);
     setError("");
     try {
-      const wallet = await loadWallet();
-      if (!wallet) {
-        setError("No protected wallet was found. Restore it with your recovery phrase.");
-        return;
-      }
-      onUnlocked(wallet.address);
+      const { account } = await unlockAccount(undefined, "Authenticate to unlock your TREX Wallet");
+      onUnlocked(account.address);
     } catch {
       setError("Authentication was cancelled or the wallet could not be unlocked. Try again or restore your wallet.");
     } finally {
@@ -28,12 +26,11 @@ export function WalletUnlock({ onUnlocked, onRestore }: { onUnlocked: (address: 
   return (
     <View style={styles.screen}>
       <View style={styles.top}>
-        <View style={styles.logo}><Text style={styles.logoText}>T</Text></View>
-        <Text style={styles.brand}>TREX<Text style={styles.dot}>.</Text></Text>
-        <Text style={styles.caption}>YOUR EVM WALLET</Text>
+        <BrandLogo size={116} />
+        <View style={{ marginTop: 14 }}><Wordmark height={30} tagline /></View>
       </View>
 
-      <View style={styles.panel}>
+      <FadeIn style={styles.panel}>
         <View style={styles.lockCircle}><Text style={styles.lock}>⌑</Text></View>
         <Text style={styles.kicker}>WELCOME BACK</Text>
         <Text style={styles.title}>Your wallet, protected.</Text>
@@ -43,7 +40,7 @@ export function WalletUnlock({ onUnlocked, onRestore }: { onUnlocked: (address: 
         </Pressable>
         <Text style={styles.secureNote}>BIOMETRIC AUTHENTICATION · KEYS STAY ON YOUR DEVICE</Text>
         {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      </View>
+      </FadeIn>
 
       <View style={styles.bottom}>
         <Pressable onPress={onRestore} style={styles.restore}><Text style={styles.restoreText}>Restore with recovery phrase</Text></Pressable>
@@ -54,14 +51,14 @@ export function WalletUnlock({ onUnlocked, onRestore }: { onUnlocked: (address: 
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background, paddingHorizontal: 25, justifyContent: "space-between", paddingTop: 54, paddingBottom: 24 },
+  screen: { flex: 1, backgroundColor: theme.colors.background, paddingHorizontal: 25, justifyContent: "space-between", paddingTop: 34, paddingBottom: 24 },
   top: { alignItems: "center" },
   logo: { width: 66, height: 66, borderRadius: 22, backgroundColor: "#32190B", borderWidth: 1, borderColor: "#D97719", alignItems: "center", justifyContent: "center" },
   logoText: { color: "#FFE4BD", fontSize: 42, fontWeight: "900" },
   brand: { color: theme.colors.text, fontSize: 29, fontWeight: "900", letterSpacing: 4, marginTop: 12 },
   dot: { color: theme.colors.primaryBright },
   caption: { color: theme.colors.muted, fontSize: 8, fontWeight: "800", letterSpacing: 2.4, marginTop: 1 },
-  panel: { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 26, padding: 23 },
+  panel: { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 26, padding: 23, shadowColor: theme.colors.primary, shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
   lockCircle: { width: 48, height: 48, borderRadius: 16, backgroundColor: "#3A1D0C", alignItems: "center", justifyContent: "center", marginBottom: 22 },
   lock: { color: theme.colors.primaryBright, fontSize: 27, fontWeight: "700" },
   kicker: { color: theme.colors.primaryBright, fontSize: 9, fontWeight: "900", letterSpacing: 1.8, marginBottom: 8 },

@@ -1,15 +1,13 @@
 import {
   Contract,
-  HDNodeWallet,
   JsonRpcProvider,
-  Mnemonic,
+  type BaseWallet,
   formatEther,
   formatUnits,
   isAddress,
   parseUnits
 } from "ethers";
 import { isTestnet, rpcUrlFor, type EvmNetwork } from "../config/networks";
-import type { StoredWallet } from "./vault";
 import type { TokenMetadata } from "./tokens";
 
 const ERC20_ABI = [
@@ -109,7 +107,7 @@ export async function prepareErc20Transfer(
 
 export async function sendErc20Transfer(
   network: EvmNetwork,
-  wallet: StoredWallet,
+  wallet: BaseWallet,
   token: TokenMetadata,
   recipient: string,
   amount: string
@@ -120,11 +118,7 @@ export async function sendErc20Transfer(
   const provider = providerFor(network);
   try {
     await checkChain(provider, network);
-    const mnemonic = Mnemonic.fromPhrase(wallet.mnemonic);
-    const signer = HDNodeWallet.fromMnemonic(mnemonic, wallet.derivationPath).connect(provider);
-    if (signer.address.toLowerCase() !== wallet.address.toLowerCase()) {
-      throw new Error("The protected wallet does not match its saved public address.");
-    }
+    const signer = wallet.connect(provider);
     const code = await provider.getCode(token.contractAddress);
     if (code === "0x") throw new Error("Token contract code was not found on this network.");
     const contract = new Contract(token.contractAddress, ERC20_ABI, signer);
