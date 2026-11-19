@@ -42,16 +42,21 @@ function ActionTile({ icon, label, onPress, disabled = false }: {
   onPress?: () => void;
   disabled?: boolean;
 }) {
+  const pressScale = useRef(new Animated.Value(1)).current;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
+      onPressIn={() => { if (!disabled) Animated.spring(pressScale, { toValue: 0.94, useNativeDriver: true, speed: 35, bounciness: 5 }).start(); }}
+      onPressOut={() => Animated.spring(pressScale, { toValue: 1, useNativeDriver: true, speed: 28, bounciness: 7 }).start()}
       style={({ pressed }) => [styles.actionTile, pressed && !disabled && styles.pressed, disabled && styles.disabled]}
     >
-      <Text style={styles.actionIcon}>{icon}</Text>
-      <Text style={styles.actionLabel}>{label}</Text>
+      <Animated.View style={{ alignItems: "center", gap: 8, transform: [{ scale: pressScale }] }}>
+        <Text style={styles.actionIcon}>{icon}</Text>
+        <Text style={styles.actionLabel}>{label}</Text>
+      </Animated.View>
     </Pressable>
   );
 }
