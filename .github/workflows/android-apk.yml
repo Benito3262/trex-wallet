@@ -17,6 +17,10 @@ jobs:
   build-standalone-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # Public Reown (WalletConnect) project ID; it is bundled into the app and is not a secret.
+      # A repository variable with the same name overrides it.
+      EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID: ${{ vars.EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID || 'd0f69a58b067c07eeb5bba4030fc9bf9' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,13 +33,15 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Install image conversion tools
-        run: sudo apt-get update && sudo apt-get install -y imagemagick
-      - name: Generate launcher icon PNGs
+      - name: Prepare brand assets
         run: |
-          mkdir -p assets
-          convert -background none assets/icon.svg -resize 1024x1024 assets/icon.png
-          convert -background none assets/icon.svg -resize 1024x1024 -gravity center -extent 1024x1024 assets/adaptive-icon.png
+          # Older revisions generated PNGs from assets/icon.svg; current ones commit the official logo PNGs.
+          if [ -f assets/icon.svg ] && [ ! -f assets/icon.png ]; then
+            sudo apt-get update && sudo apt-get install -y imagemagick
+            convert -background none assets/icon.svg -resize 1024x1024 assets/icon.png
+            convert -background none assets/icon.svg -resize 1024x1024 -gravity center -extent 1024x1024 assets/adaptive-icon.png
+          fi
+          test -s assets/icon.png && test -s assets/adaptive-icon.png
       - name: Install JavaScript dependencies
         run: npm install
       - name: Validate dependencies
