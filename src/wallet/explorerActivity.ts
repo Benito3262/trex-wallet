@@ -62,7 +62,7 @@ export async function fetchAddressActivity(network: EvmNetwork, address: string)
   const native: ExplorerActivity[] = nativeItems.map((item: any) => {
     const fromAddress = asAddress(item.from);
     const toAddress = asAddress(item.to);
-    const direction = toAddress.toLowerCase() === normalized ? "received" : "sent";
+    const direction: "received" | "sent" = toAddress.toLowerCase() === normalized ? "received" : "sent";
     const rawValue = typeof item.value === "string" ? item.value : "0";
     let amount = "0";
     try { amount = formatUnits(BigInt(rawValue), 18); } catch { /* malformed explorer value */ }
